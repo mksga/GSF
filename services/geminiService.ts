@@ -65,6 +65,68 @@ const GROQ_TEXT_MODELS = [
   "qwen/qwen3-32b"
 ];
 
+async function callGroqStream(messages: any[], model?: string, temperature = 0.4, onChunk?: (text: string) => void): Promise<string> {
+  const apiKey = getGroqApiKey();
+  if (!apiKey) throw new Error("API key is missing. Please set VITE_GROQ_API_KEY.");
+
+  const selectedModel = (model && !model.includes("llama3-70b-8192")) 
+    ? model 
+    : GROQ_TEXT_MODELS[Math.floor(Math.random() * GROQ_TEXT_MODELS.length)];
+
+  const body: any = {
+    model: selectedModel,
+    messages,
+    temperature,
+    stream: true
+  };
+
+  const response = await fetch(GROQ_URL, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(body)
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    if (response.status === 429) throw new Error("429 Rate Limit");
+    throw new Error(errorData.error?.message || `API Error: ${response.status}`);
+  }
+
+  if (!response.body) throw new Error("No response body");
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder("utf-8");
+  let fullText = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    
+    const chunk = decoder.decode(value, { stream: true });
+    const lines = chunk.split("\n");
+    
+    for (const line of lines) {
+      if (line.startsWith("data: ") && line !== "data: [DONE]") {
+        try {
+          const data = JSON.parse(line.slice(6));
+          const content = data.choices[0]?.delta?.content || "";
+          fullText += content;
+          if (onChunk && content) {
+            onChunk(fullText);
+          }
+        } catch (e) {
+          // Ignore parse errors for incomplete chunks
+        }
+      }
+    }
+  }
+
+  return fullText;
+}
+
 async function callGroq(messages: any[], model?: string, temperature = 0.4, jsonMode = false) {
   const apiKey = getGroqApiKey();
   if (!apiKey) throw new Error("API key is missing. Please set VITE_GROQ_API_KEY.");
@@ -110,7 +172,7 @@ async function searchGoogleAndMaps(query: string, location: string) {
     fetch("https://google.serper.dev/search", {
       method: "POST",
       headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
-      body: JSON.stringify({ q: `${query} in ${location}`, num: 10 })
+      body: JSON.stringify({ q: `${query} in ${location}`, num: 20 })
     }).then(res => res.json()).catch(() => ({ organic: [] })),
     fetch("https://google.serper.dev/places", {
       method: "POST",
@@ -444,7 +506,7 @@ async function attemptToFindSites(
     CRITICAL: The URL must point to the official website of the business, NOT a directory profile (like Yelp, YellowPages, Facebook, Instagram).
     EXCLUDE: DIRECTORIES, AGGREGATORS, SOCIAL MEDIA, PARKING PAGES, ${EXCLUDED_CATEGORIES.join(", ").toUpperCase()}.
     
-    Return the result as a JSON object with a "sites" array containing the valid businesses:
+    Return the result as a JSON object with a "sites" array containing EXACTLY 5 valid businesses:
     {
       "sites": [
         { 
@@ -459,102 +521,72 @@ async function attemptToFindSites(
   `;
 
   try {
-    const text = await callGroq([{ role: "user", content: prompt }], undefined, 0.1, true);
-
-    let data: any[] = [];
-    try {
-        const parsed = JSON.parse(text);
-        data = parsed.sites || [];
-    } catch (e) {
-        throw new Error("Malformed JSON received from Groq.");
-    }
-
-    if (!Array.isArray(data) || data.length === 0) {
-        throw new Error("Groq returned an empty list.");
-    }
-
-    if (onProgress) onProgress("Validating Found Sites...", 60);
-
-    const seenUrlsInBatch = new Set<string>();
-    const potentialSites = data.filter((c: any) => {
-        if (!c.url || !c.siteName) return false;
-        let url = c.url;
-        if (!url.startsWith('http')) url = 'https://' + url;
+    let currentJsonString = "";
+    let processedUrls = new Set<string>();
+    let activeChecks = 0;
+    
+    // We will parse the stream to find URLs as soon as they appear
+    const text = await callGroqStream([{ role: "user", content: prompt }], undefined, 0.1, async (partialText) => {
+        // Look for URLs in the partial JSON
+        const urlMatches = [...partialText.matchAll(/"url"\s*:\s*"([^"]+)"/g)];
         
-        const domain = normalizeDomain(url);
-        
-        // Filter out obvious social media and directories that the LLM might have missed
-        const badDomains = ['facebook.com', 'instagram.com', 'yelp.', 'yellowpages.', 'linkedin.com', 'twitter.com', 'x.com', 'tiktok.com', 'youtube.com', 'tripadvisor.', 'foursquare.'];
-        if (badDomains.some(bad => domain.includes(bad))) return false;
-
-        if (currentExcludedDomains.has(domain) || seenUrlsInBatch.has(domain)) return false;
-        
-        seenUrlsInBatch.add(domain);
-        currentExcludedDomains.add(domain);
-        return true;
+        for (const match of urlMatches) {
+            let url = match[1];
+            if (!url.startsWith('http')) url = 'https://' + url;
+            const domain = normalizeDomain(url);
+            
+            if (!processedUrls.has(domain) && accumulatedSites.length < 5) {
+                processedUrls.add(domain);
+                
+                // Filter out obvious bad domains
+                const badDomains = ['facebook.com', 'instagram.com', 'yelp.', 'yellowpages.', 'linkedin.com', 'twitter.com', 'x.com', 'tiktok.com', 'youtube.com', 'tripadvisor.', 'foursquare.'];
+                if (badDomains.some(bad => domain.includes(bad)) || currentExcludedDomains.has(domain)) {
+                    continue;
+                }
+                
+                currentExcludedDomains.add(domain);
+                activeChecks++;
+                
+                // Check site immediately without waiting for the rest of the JSON
+                verifySiteFast(url).then(isAlive => {
+                    activeChecks--;
+                    if (isAlive && accumulatedSites.length < 5) {
+                        // Extract siteName if possible from the partial text
+                        const nameMatch = new RegExp(`"siteName"\\s*:\\s*"([^"]+)"[\\s\\S]*?"url"\\s*:\\s*"${match[1]}"`).exec(partialText);
+                        const siteName = nameMatch ? nameMatch[1] : domain;
+                        
+                        const validSite: ServiceSite = {
+                            id: typeof crypto !== 'undefined' ? crypto.randomUUID() : Math.random().toString(36).slice(2),
+                            url: url,
+                            siteName: siteName,
+                            country: { en: targetCountry, ru: targetCountry, uk: targetCountry },
+                            city: { en: targetCity || "", ru: targetCity || "", uk: targetCity || "" },
+                            serviceCategory: { en: defaultCategoryLabel, ru: defaultCategoryLabel, uk: defaultCategoryLabel },
+                            language: forcedNativeLanguage,
+                            isNew: true,
+                            privacyPolicyFound: true,
+                            nativePromo: { headlines: [], descriptions: [] },
+                            russianPromo: { headlines: [], descriptions: [] },
+                            timestamp: Date.now(),
+                            htmlContent: "",
+                            isPromoGenerated: false
+                        };
+                        
+                        accumulatedSites.push(validSite);
+                        if (onSiteFound) {
+                            onSiteFound(validSite);
+                        }
+                    }
+                });
+            }
+        }
     });
 
-    if (potentialSites.length > 0) {
-      if (onProgress) onProgress("Checking Site Availability...", 80);
-      
-      const batchSize = 15;
-      
-      for (let i = 0; i < potentialSites.length; i += batchSize) {
-          const batch = potentialSites.slice(i, i + batchSize);
-          
-          const checks = batch.map(async (candidate: any) => {
-              let url = candidate.url;
-              if (!url.startsWith('http')) url = 'https://' + url;
-              
-              const isAlive = await verifySiteFast(url);
-              if (isAlive) {
-                  const validSite: ServiceSite = {
-                      id: typeof crypto !== 'undefined' ? crypto.randomUUID() : Math.random().toString(36).slice(2),
-                      url: url,
-                      siteName: candidate.siteName,
-                      country: {
-                          en: candidate.country?.en || targetCountry,
-                          ru: candidate.country?.ru || targetCountry,
-                          uk: candidate.country?.uk || targetCountry
-                      },
-                      city: {
-                          en: candidate.city?.en || targetCity || "",
-                          ru: candidate.city?.ru || targetCity || "",
-                          uk: candidate.city?.uk || targetCity || ""
-                      },
-                      serviceCategory: {
-                          en: candidate.category?.en || defaultCategoryLabel,
-                          ru: candidate.category?.ru || defaultCategoryLabel,
-                          uk: candidate.category?.uk || defaultCategoryLabel
-                      },
-                      language: forcedNativeLanguage,
-                      isNew: true,
-                      privacyPolicyFound: true,
-                      nativePromo: { headlines: [], descriptions: [] },
-                      russianPromo: { headlines: [], descriptions: [] },
-                      timestamp: Date.now(),
-                      htmlContent: "",
-                      isPromoGenerated: false
-                   };
-                  
-                  if (onSiteFound) {
-                      onSiteFound(validSite);
-                  }
-                  return validSite;
-              }
-              return null;
-          });
-
-          const results = await Promise.all(checks);
-          const aliveSites = results.filter((r): r is ServiceSite => r !== null);
-          
-          accumulatedSites.push(...aliveSites);
-          
-          if (accumulatedSites.length >= 5) {
-              break; 
-          }
-      }
+    // Wait for any pending active checks to finish
+    while (activeChecks > 0 && accumulatedSites.length < 5) {
+        await new Promise(r => setTimeout(r, 200));
     }
+
   } catch (error: any) {
     console.error("Groq/Serper Search Error:", error);
     
