@@ -1,6 +1,6 @@
 
 // services/geminiService.ts
-import { ServiceSite } from "../types";
+import { ServiceSite, LocalizedText } from "../types";
 import { COUNTRIES, TARGET_CATEGORIES, EXCLUDED_CATEGORIES } from "../constants";
 
 // Helper to get Groq API key
@@ -480,6 +480,48 @@ async function translateServiceQuery(query: string, targetLanguage: string): Pro
   }
 }
 
+async function translateMetadata(country: string, city: string, service: string): Promise<{
+    country: LocalizedText,
+    city: LocalizedText,
+    service: LocalizedText
+}> {
+    const prompt = `
+    Translate the following location and service terms into English (en), Russian (ru), and Ukrainian (uk).
+    If a field is empty, return empty strings for it.
+    
+    Input:
+    Country: "${country}"
+    City: "${city}"
+    Service: "${service}"
+    
+    Return strict JSON format:
+    {
+      "country": { "en": "...", "ru": "...", "uk": "..." },
+      "city": { "en": "...", "ru": "...", "uk": "..." },
+      "service": { "en": "...", "ru": "...", "uk": "..." }
+    }
+    `;
+    
+    try {
+        const text = await callGroq([{ role: "user", content: prompt }], "llama-3.1-8b-instant", 0.1, false);
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        const data = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(text);
+        return {
+            country: data.country || { en: country, ru: country, uk: country },
+            city: data.city || { en: city, ru: city, uk: city },
+            service: data.service || { en: service, ru: service, uk: service }
+        };
+    } catch (e) {
+        // Fallback: use original string for all
+        const fallback = (s: string) => ({ en: s, ru: s, uk: s });
+        return {
+            country: fallback(country),
+            city: fallback(city),
+            service: fallback(service)
+        };
+    }
+}
+
 async function attemptToFindSites(
   existingUrls: string[], 
   targetCountry: string, 
@@ -536,6 +578,9 @@ async function attemptToFindSites(
   }
 
   if (onProgress) onProgress(`Searching Google & Maps via Serper...`, 30);
+
+  // Start translation in parallel with search to save time
+  const translationPromise = translateMetadata(targetCountry, targetCity || "", defaultCategoryLabel);
 
   const searchContext = await searchGoogleAndMaps(searchInstruction, locationPrompt);
 
@@ -616,7 +661,7 @@ async function attemptToFindSites(
                 activeChecks++;
                 
                 // Check site immediately without waiting for the rest of the JSON
-                verifySiteFast(url).then(isAlive => {
+                verifySiteFast(url).then(async (isAlive) => {
                     activeChecks--;
                     if (isAlive && accumulatedSites.length < 5) {
                         // Extract siteName if possible from the partial text
@@ -634,14 +679,17 @@ async function attemptToFindSites(
                                 }
                             }
                         }
+
+                        // Wait for translation if it's not ready yet (it usually is)
+                        const localizedMetadata = await translationPromise;
                         
                         const validSite: ServiceSite = {
                             id: typeof crypto !== 'undefined' ? crypto.randomUUID() : Math.random().toString(36).slice(2),
                             url: url,
                             siteName: siteName,
-                            country: { en: targetCountry, ru: targetCountry, uk: targetCountry },
-                            city: { en: targetCity || "", ru: targetCity || "", uk: targetCity || "" },
-                            serviceCategory: { en: defaultCategoryLabel, ru: defaultCategoryLabel, uk: defaultCategoryLabel },
+                            country: localizedMetadata.country,
+                            city: localizedMetadata.city,
+                            serviceCategory: localizedMetadata.service,
                             language: forcedNativeLanguage,
                             isNew: true,
                             privacyPolicyFound: true,
