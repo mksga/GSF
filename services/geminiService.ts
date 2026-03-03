@@ -30,12 +30,24 @@ const getSerperApiKey = (): string => {
 
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
-async function callGroq(messages: any[], model = "llama3-70b-8192", temperature = 0.4, jsonMode = false) {
+const GROQ_TEXT_MODELS = [
+  "llama-3.3-70b-versatile",
+  "llama-3.1-8b-instant",
+  "mixtral-8x7b-32768",
+  "gemma2-9b-it"
+];
+
+async function callGroq(messages: any[], model?: string, temperature = 0.4, jsonMode = false) {
   const apiKey = getGroqApiKey();
   if (!apiKey) throw new Error("API key is missing. Please set VITE_GROQ_API_KEY.");
 
+  // If no model is specified, or if the old decommissioned model is passed, pick a random active model
+  const selectedModel = (model && !model.includes("llama3-70b-8192")) 
+    ? model 
+    : GROQ_TEXT_MODELS[Math.floor(Math.random() * GROQ_TEXT_MODELS.length)];
+
   const body: any = {
-    model,
+    model: selectedModel,
     messages,
     temperature
   };
@@ -268,7 +280,7 @@ async function generateAdsFromSiteContent(
       }
     `;
 
-    const text = await callGroq([{ role: "user", content: prompt }], "llama3-70b-8192", 0.4, true);
+    const text = await callGroq([{ role: "user", content: prompt }], undefined, 0.4, true);
     
     try {
         return JSON.parse(text);
@@ -419,7 +431,7 @@ async function attemptToFindSites(
   `;
 
   try {
-    const text = await callGroq([{ role: "user", content: prompt }], "llama3-70b-8192", 0.1, true);
+    const text = await callGroq([{ role: "user", content: prompt }], undefined, 0.1, true);
 
     let data: any[] = [];
     try {
@@ -614,7 +626,7 @@ export const generatePromoForSite = async (site: ServiceSite): Promise<Partial<S
 
 export const generateText = async (prompt: string): Promise<string> => {
   try {
-    return await callGroq([{ role: "user", content: prompt }], "llama3-70b-8192", 0.7);
+    return await callGroq([{ role: "user", content: prompt }], undefined, 0.7);
   } catch (error) {
     console.error("Groq Text Generation Error:", error);
     throw error;
