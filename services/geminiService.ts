@@ -486,15 +486,19 @@ async function translateMetadata(country: string, city: string, service: string)
     service: LocalizedText
 }> {
     const prompt = `
-    Translate the following location and service terms into English (en), Russian (ru), and Ukrainian (uk).
-    If a field is empty, return empty strings for it.
+    You are a professional translator. Translate the following location and service terms into English (en), Russian (ru), and Ukrainian (uk).
     
     Input:
     Country: "${country}"
     City: "${city}"
     Service: "${service}"
     
-    Return strict JSON format:
+    IMPORTANT:
+    1. Provide accurate translations.
+    2. If a field is empty, return empty strings for all languages for that field.
+    3. Return ONLY valid JSON. No markdown formatting, no code blocks, no explanations.
+    
+    JSON Structure:
     {
       "country": { "en": "...", "ru": "...", "uk": "..." },
       "city": { "en": "...", "ru": "...", "uk": "..." },
@@ -503,15 +507,22 @@ async function translateMetadata(country: string, city: string, service: string)
     `;
     
     try {
-        const text = await callGroq([{ role: "user", content: prompt }], "llama-3.1-8b-instant", 0.1, false);
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
-        const data = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(text);
+        // Use a more capable model for better JSON adherence and translation quality
+        const text = await callGroq([{ role: "user", content: prompt }], "llama-3.3-70b-versatile", 0.1, false);
+        
+        // Clean up text (remove markdown code blocks if present)
+        const cleanText = text.replace(/```json\n?|\n?```/g, '').trim();
+        
+        const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
+        const data = jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(cleanText);
+        
         return {
             country: data.country || { en: country, ru: country, uk: country },
             city: data.city || { en: city, ru: city, uk: city },
             service: data.service || { en: service, ru: service, uk: service }
         };
     } catch (e) {
+        console.error("Translation Metadata Failed:", e);
         // Fallback: use original string for all
         const fallback = (s: string) => ({ en: s, ru: s, uk: s });
         return {
