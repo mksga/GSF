@@ -447,6 +447,21 @@ export const findNewSites = async (
   return await attemptToFindSites(existingUrls, countryToUse || "", targetService, targetCity, onProgress, onSiteFound);
 };
 
+async function translateServiceQuery(query: string, targetLanguage: string): Promise<string> {
+  const prompt = `
+    Translate the service search term "${query}" into ${targetLanguage}.
+    Return ONLY the translated term. Do not add quotes or extra text.
+    Example: "Cleaning" -> "Sprzątanie"
+  `;
+  // Use a fast model for translation
+  try {
+    const result = await callGroq([{ role: "user", content: prompt }], "llama-3.1-8b-instant", 0.1, false);
+    return result.trim().replace(/^"|"$/g, '');
+  } catch (e) {
+    return query;
+  }
+}
+
 async function attemptToFindSites(
   existingUrls: string[], 
   targetCountry: string, 
@@ -472,16 +487,27 @@ async function attemptToFindSites(
   const isCis = instructionLanguage === "Russian" || forcedNativeLanguage === "Russian";
   const accumulatedSites: ServiceSite[] = [];
 
-  if (onProgress) onProgress(`Searching Google & Maps via Serper...`, 30);
+  if (onProgress) onProgress(`Preparing search...`, 10);
 
   let searchInstruction = "";
   let defaultCategoryLabel = "";
   let strictServiceRule = "";
 
   if (targetService?.trim()) {
-      searchInstruction = `"${targetService.trim()}"`;
-      defaultCategoryLabel = targetService.trim();
-      strictServiceRule = `CRITICAL: YOU MUST ONLY RETURN BUSINESSES THAT PROVIDE "${targetService.trim()}" SERVICES. 
+      let serviceQuery = targetService.trim();
+      
+      // Auto-translate logic: If we know the target language and it's not English/Local, translate the query
+      if (forcedNativeLanguage !== "English" && forcedNativeLanguage !== "Local") {
+           if (onProgress) onProgress(`Translating "${serviceQuery}" to ${forcedNativeLanguage}...`, 20);
+           const translated = await translateServiceQuery(serviceQuery, forcedNativeLanguage);
+           if (translated && translated.length < 100) { // Sanity check
+               serviceQuery = translated;
+           }
+      }
+
+      searchInstruction = `"${serviceQuery}"`;
+      defaultCategoryLabel = targetService.trim(); // Keep original for UI fallback
+      strictServiceRule = `CRITICAL: YOU MUST ONLY RETURN BUSINESSES THAT PROVIDE "${serviceQuery}" SERVICES. 
       CRITICAL: DO NOT RETURN ANY SHOPS, E-COMMERCE SITES, OR PLACES THAT SELL PRODUCTS. ONLY SERVICE PROVIDERS.`;
   } else {
       const randomMix = shuffleArray(TARGET_CATEGORIES).slice(0, 6).join(", ");
@@ -490,6 +516,8 @@ async function attemptToFindSites(
       strictServiceRule = `CRITICAL: The list must be DIVERSE. Do not focus on just one industry.
       CRITICAL: DO NOT RETURN ANY SHOPS, E-COMMERCE SITES, OR PLACES THAT SELL PRODUCTS. ONLY SERVICE PROVIDERS.`;
   }
+
+  if (onProgress) onProgress(`Searching Google & Maps via Serper...`, 30);
 
   const searchContext = await searchGoogleAndMaps(searchInstruction, locationPrompt);
 
@@ -553,8 +581,20 @@ async function attemptToFindSites(
                     activeChecks--;
                     if (isAlive && accumulatedSites.length < 5) {
                         // Extract siteName if possible from the partial text
-                        const nameMatch = new RegExp(`"siteName"\\s*:\\s*"([^"]+)"[\\s\\S]*?"url"\\s*:\\s*"${match[1]}"`).exec(partialText);
-                        const siteName = nameMatch ? nameMatch[1] : domain;
+                        let siteName = domain;
+                        // Fix: correctly associate siteName with the current URL by looking backwards from the URL match
+                        if (match.index !== undefined) {
+                            const textBefore = partialText.slice(0, match.index);
+                            const nameMatches = [...textBefore.matchAll(/"siteName"\s*:\s*"([^"]+)"/g)];
+                            if (nameMatches.length > 0) {
+                                const lastName = nameMatches[nameMatches.length - 1];
+                                // Ensure no closing brace between name and url to be safe (prevents grabbing name from previous object)
+                                const textBetween = textBefore.slice(lastName.index! + lastName[0].length);
+                                if (!textBetween.includes('}')) {
+                                    siteName = lastName[1];
+                                }
+                            }
+                        }
                         
                         const validSite: ServiceSite = {
                             id: typeof crypto !== 'undefined' ? crypto.randomUUID() : Math.random().toString(36).slice(2),
