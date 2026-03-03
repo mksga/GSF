@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches: [main] # Если ваша ветка называется master, замените на [master]
 
 permissions:
   contents: read
@@ -20,6 +20,7 @@ jobs:
       - run: npm ci
       - run: npm run build
         env:
+          # Важно: здесь мы берем ваш секрет и передаем его в сборку
           VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
       - uses: actions/upload-pages-artifact@v3
         with:
