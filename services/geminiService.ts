@@ -32,8 +32,7 @@ const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 const GROQ_TEXT_MODELS = [
   "llama-3.3-70b-versatile",
-  "llama-3.1-8b-instant",
-  "mixtral-8x7b-32768"
+  "llama-3.1-8b-instant"
 ];
 
 async function callGroq(messages: any[], model?: string, temperature = 0.4, jsonMode = false) {
