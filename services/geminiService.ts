@@ -62,13 +62,29 @@ const GROQ_TEXT_MODELS = [
   "moonshotai/kimi-k2-instruct"
 ];
 
+const getNextModel = (): string => {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return GROQ_TEXT_MODELS[Math.floor(Math.random() * GROQ_TEXT_MODELS.length)];
+  }
+  
+  let idx = parseInt(localStorage.getItem('groq_model_idx') || '0', 10);
+  if (isNaN(idx)) idx = 0;
+  
+  const model = GROQ_TEXT_MODELS[idx % GROQ_TEXT_MODELS.length];
+  localStorage.setItem('groq_model_idx', (idx + 1).toString());
+  
+  return model;
+};
+
 async function callGroqStream(messages: any[], model?: string, temperature = 0.4, onChunk?: (text: string) => void): Promise<string> {
   const apiKey = getGroqApiKey();
   if (!apiKey) throw new Error("API key is missing. Please set VITE_GROQ_API_KEY.");
 
   const selectedModel = (model && !model.includes("llama3-70b-8192")) 
     ? model 
-    : GROQ_TEXT_MODELS[Math.floor(Math.random() * GROQ_TEXT_MODELS.length)];
+    : getNextModel();
+
+  console.log(`Using Groq Model: ${selectedModel}`);
 
   const body: any = {
     model: selectedModel,
@@ -128,10 +144,12 @@ async function callGroq(messages: any[], model?: string, temperature = 0.4, json
   const apiKey = getGroqApiKey();
   if (!apiKey) throw new Error("API key is missing. Please set VITE_GROQ_API_KEY.");
 
-  // If no model is specified, or if the old decommissioned model is passed, pick a random active model
+  // If no model is specified, or if the old decommissioned model is passed, pick the next active model
   const selectedModel = (model && !model.includes("llama3-70b-8192")) 
     ? model 
-    : GROQ_TEXT_MODELS[Math.floor(Math.random() * GROQ_TEXT_MODELS.length)];
+    : getNextModel();
+
+  console.log(`Using Groq Model (Non-Stream): ${selectedModel}`);
 
   const body: any = {
     model: selectedModel,
