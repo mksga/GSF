@@ -33,9 +33,9 @@ jobs:
       - name: Build project
         run: npm run build
         env:
-          # Передаем секретный ключ из GitHub Secrets в процесс сборки Vite
-          VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
-          GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
+          # Передаем секретные ключи из GitHub Secrets в процесс сборки Vite
+          VITE_GROQ_API_KEY: ${{ secrets.VITE_GROQ_API_KEY }}
+          VITE_SERPER_API_KEY: ${{ secrets.VITE_SERPER_API_KEY }}
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
