@@ -582,12 +582,33 @@ async function attemptToFindSites(
   // Start translation in parallel with search to save time
   const translationPromise = translateMetadata(targetCountry, targetCity || "", defaultCategoryLabel);
 
-  const searchContext = await searchGoogleAndMaps(searchInstruction, locationPrompt);
+  let attempts = 0;
+  const maxAttempts = 3;
+  
+  while (accumulatedSites.length < 5 && attempts < maxAttempts) {
+      attempts++;
+      
+      let currentInstruction = searchInstruction;
+      
+      // Vary the search query on subsequent attempts to find more results
+      if (attempts === 2) {
+          if (!currentInstruction.includes("services")) {
+             currentInstruction = currentInstruction.replace(/"/g, '') + " services";
+          } else {
+             currentInstruction = currentInstruction.replace(/"/g, '') + " company";
+          }
+      } else if (attempts === 3) {
+          currentInstruction = currentInstruction.replace(/"/g, '') + " professional";
+      }
+      
+      if (onProgress) onProgress(`Searching Google & Maps (Attempt ${attempts}/${maxAttempts})...`, 30 + (attempts * 10));
 
-  if (onProgress) onProgress(`Analyzing results with Groq (Llama 3)...`, 45);
+      const searchContext = await searchGoogleAndMaps(currentInstruction, locationPrompt);
 
-  const prompt = `
-    TASK: You are an expert data extractor. I have performed a Google Search and Google Maps search for ${searchInstruction} in "${locationPrompt}".
+      if (onProgress) onProgress(`Analyzing results with Groq (Attempt ${attempts})...`, 45 + (attempts * 5));
+
+      const prompt = `
+    TASK: You are an expert data extractor. I have performed a Google Search and Google Maps search for ${currentInstruction} in "${locationPrompt}".
     Here are the raw search results:
     
     ${searchContext}
@@ -710,25 +731,25 @@ async function attemptToFindSites(
         }
     });
 
-    // Wait for any pending active checks to finish
-    while (activeChecks > 0 && accumulatedSites.length < 5) {
+    // Wait for any pending active checks to finish for this attempt
+    let waitTime = 0;
+    while (activeChecks > 0 && accumulatedSites.length < 5 && waitTime < 3000) {
         await new Promise(r => setTimeout(r, 200));
+        waitTime += 200;
     }
     
-    // If we found sites, we are good.
-    if (accumulatedSites.length > 0) {
-        return accumulatedSites;
+    if (accumulatedSites.length >= 5) {
+        break;
     }
 
   } catch (error: any) {
-    console.error("Groq/Serper Search Error:", error);
+    console.error(`Groq/Serper Search Error (Attempt ${attempts}):`, error);
     
     // Check if it's a rate limit error (429)
     if (error.message?.includes("429")) {
         throw new Error("Превышен лимит запросов к API. Пожалуйста, подождите и попробуйте снова.");
     }
-    
-    throw new Error(error.message || "Unknown search error");
+  }
   }
 
   if (accumulatedSites.length > 0) {
