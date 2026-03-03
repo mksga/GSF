@@ -59,10 +59,7 @@ const GROQ_TEXT_MODELS = [
   "llama-3.3-70b-versatile",
   "llama-3.1-8b-instant",
   "openai/gpt-oss-120b",
-  "openai/gpt-oss-20b",
-  "moonshotai/kimi-k2-instruct",
-  "moonshotai/kimi-k2-instruct-0905",
-  "qwen/qwen3-32b"
+  "moonshotai/kimi-k2-instruct"
 ];
 
 async function callGroqStream(messages: any[], model?: string, temperature = 0.4, onChunk?: (text: string) => void): Promise<string> {
@@ -142,9 +139,9 @@ async function callGroq(messages: any[], model?: string, temperature = 0.4, json
     temperature
   };
   
-  if (jsonMode) {
-    body.response_format = { type: "json_object" };
-  }
+  // We remove response_format: { type: "json_object" } because some models 
+  // (like qwen and gpt-oss) fail with json_validate_failed.
+  // Our code already uses regex to extract JSON from the text output.
 
   const response = await fetch(GROQ_URL, {
     method: "POST",
@@ -370,9 +367,13 @@ async function generateAdsFromSiteContent(
       }
     `;
 
-    const text = await callGroq([{ role: "user", content: prompt }], undefined, 0.4, true);
+    const text = await callGroq([{ role: "user", content: prompt }], undefined, 0.4, false);
     
     try {
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            return JSON.parse(jsonMatch[0]);
+        }
         return JSON.parse(text);
     } catch (e) {
         console.error("Failed to parse Ad Generation JSON:", e, "Raw text:", text);
