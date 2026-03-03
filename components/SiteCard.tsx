@@ -55,7 +55,7 @@ const SiteCard: React.FC<SiteCardProps> = ({ site, index, onDelete, onBlock, onG
       e.stopPropagation();
       navigator.clipboard.writeText(site.url).then(() => {
           setCopiedUrl(true);
-          if (site.isNew) onMarkAsRead(site.id);
+          onView(site.id);
           setTimeout(() => setCopiedUrl(false), 2000);
       });
   };
@@ -111,11 +111,6 @@ const SiteCard: React.FC<SiteCardProps> = ({ site, index, onDelete, onBlock, onG
               <h3 className="text-xl font-bold text-slate-900 tracking-tight leading-tight line-clamp-2" title={site.siteName}>
                 {site.siteName}
               </h3>
-              {site.isNew && (
-                <span className="px-1.5 py-0.5 rounded bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-wider border border-emerald-600 shadow-sm animate-pulse">
-                  New
-                </span>
-              )}
             </div>
             <div className="flex items-center gap-2 group/link">
                <a 
