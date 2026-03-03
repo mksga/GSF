@@ -1,28 +1,98 @@
 
 // services/geminiService.ts
-import { GoogleGenAI } from "@google/genai";
 import { ServiceSite } from "../types";
 import { COUNTRIES, TARGET_CATEGORIES, EXCLUDED_CATEGORIES } from "../constants";
 
-// Helper to get API key from various environments (Vite, Node, AI Studio)
-// Now supports multiple comma-separated keys for rate limit rotation!
-const getApiKey = (): string => {
+// Helper to get Groq API key
+const getGroqApiKey = (): string => {
   let keysStr = "";
-  if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_GEMINI_API_KEY) {
-    keysStr = import.meta.env.VITE_GEMINI_API_KEY;
+  if (typeof import.meta !== 'undefined' && import.meta.env) {
+    keysStr = import.meta.env.VITE_GROQ_API_KEY || "";
   } else if (typeof process !== 'undefined' && process.env) {
-    keysStr = process.env.GEMINI_API_KEY || process.env.API_KEY || "";
+    keysStr = process.env.GROQ_API_KEY || "";
   }
   
   if (!keysStr) return "";
-
-  // Split by comma and remove empty spaces
   const keys = keysStr.split(',').map(k => k.trim()).filter(k => k.length > 0);
   if (keys.length === 0) return "";
-
-  // Pick a random key to distribute the load
   return keys[Math.floor(Math.random() * keys.length)];
 };
+
+// Helper to get Serper API key
+const getSerperApiKey = (): string => {
+  if (typeof import.meta !== 'undefined' && import.meta.env) {
+    return import.meta.env.VITE_SERPER_API_KEY || "";
+  } else if (typeof process !== 'undefined' && process.env) {
+    return process.env.SERPER_API_KEY || "";
+  }
+  return "";
+};
+
+const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
+
+async function callGroq(messages: any[], model = "llama3-70b-8192", temperature = 0.4, jsonMode = false) {
+  const apiKey = getGroqApiKey();
+  if (!apiKey) throw new Error("API key is missing. Please set VITE_GROQ_API_KEY.");
+
+  const body: any = {
+    model,
+    messages,
+    temperature
+  };
+  
+  if (jsonMode) {
+    body.response_format = { type: "json_object" };
+  }
+
+  const response = await fetch(GROQ_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`
+    },
+    body: JSON.stringify(body)
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Groq API Error (${response.status}): ${errText}`);
+  }
+
+  const data = await response.json();
+  return data.choices[0].message.content;
+}
+
+async function searchGoogleAndMaps(query: string, location: string) {
+  const apiKey = getSerperApiKey();
+  if (!apiKey) throw new Error("Serper API key is missing. Please set VITE_SERPER_API_KEY to enable Google Search & Maps.");
+
+  const [searchRes, placesRes] = await Promise.all([
+    fetch("https://google.serper.dev/search", {
+      method: "POST",
+      headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
+      body: JSON.stringify({ q: `${query} in ${location}`, num: 10 })
+    }).then(res => res.json()).catch(() => ({ organic: [] })),
+    fetch("https://google.serper.dev/places", {
+      method: "POST",
+      headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
+      body: JSON.stringify({ q: `${query} in ${location}` })
+    }).then(res => res.json()).catch(() => ({ places: [] }))
+  ]);
+
+  let context = "--- GOOGLE SEARCH RESULTS ---\n";
+  searchRes.organic?.forEach((r: any) => {
+    context += `Title: ${r.title}\nLink: ${r.link}\nSnippet: ${r.snippet}\n\n`;
+  });
+
+  context += "--- GOOGLE MAPS (PLACES) RESULTS ---\n";
+  placesRes.places?.forEach((r: any) => {
+    if (r.website) { // Only include places with websites
+      context += `Name: ${r.title}\nWebsite: ${r.website}\nAddress: ${r.address}\n\n`;
+    }
+  });
+
+  return context;
+}
 
 // --- API CONFIGURATION ---
 
@@ -188,8 +258,7 @@ async function generateAdsFromSiteContent(
       - 15 Google Ads Headlines (Max 30 chars).
       - 4 Google Ads Descriptions (Max 85 chars).
       
-      Return the result as a JSON object inside a markdown block like this:
-      \`\`\`json
+      Return the result as a JSON object:
       {
         "promo": {
            "native": { "headlines": ["..."], "descriptions": ["..."] },
@@ -197,28 +266,16 @@ async function generateAdsFromSiteContent(
            "language": "Detected Language"
         }
       }
-      \`\`\`
     `;
 
-    const ai = new GoogleGenAI({ apiKey: getApiKey() });
-    const response = await ai.models.generateContent({
-        model: "gemini-3.1-flash-lite-preview",
-        contents: prompt,
-        config: { temperature: 0.7 }
-    });
-
-    const text = response.text || "";
+    const text = await callGroq([{ role: "user", content: prompt }], "llama3-70b-8192", 0.4, true);
     
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-        try {
-            return JSON.parse(jsonMatch[0]);
-        } catch (e) {
-            console.error("Failed to parse Ad Generation JSON:", e, "Raw text:", text);
-            throw new Error("Failed to parse Ad Generation JSON");
-        }
+    try {
+        return JSON.parse(text);
+    } catch (e) {
+        console.error("Failed to parse Ad Generation JSON:", e, "Raw text:", text);
+        throw new Error("Failed to parse Ad Generation JSON");
     }
-    throw new Error("Failed to parse Ad Generation JSON");
 }
 
 // Strict check to see if a domain resolves and is accessible
@@ -312,7 +369,7 @@ async function attemptToFindSites(
   const isCis = instructionLanguage === "Russian" || forcedNativeLanguage === "Russian";
   const accumulatedSites: ServiceSite[] = [];
 
-  if (onProgress) onProgress(`Searching Web via Google...`, 30);
+  if (onProgress) onProgress(`Searching Google & Maps via Serper...`, 30);
 
   let searchInstruction = "";
   let defaultCategoryLabel = "";
@@ -331,56 +388,49 @@ async function attemptToFindSites(
       CRITICAL: DO NOT RETURN ANY SHOPS, E-COMMERCE SITES, OR PLACES THAT SELL PRODUCTS. ONLY SERVICE PROVIDERS.`;
   }
 
+  const searchContext = await searchGoogleAndMaps(searchInstruction, locationPrompt);
+
+  if (onProgress) onProgress(`Analyzing results with Groq (Llama 3)...`, 45);
+
   const prompt = `
-    TASK: Search the web to find 10 HIGHLY RELEVANT, REAL, ACTIVE business websites for ${searchInstruction} in "${locationPrompt}".
+    TASK: You are an expert data extractor. I have performed a Google Search and Google Maps search for ${searchInstruction} in "${locationPrompt}".
+    Here are the raw search results:
+    
+    ${searchContext}
     
     ${strictServiceRule}
-    CRITICAL: ONLY RETURN REAL, EXISTING WEBSITES. You MUST use the Google Search tool to find actual businesses.
+    CRITICAL: ONLY RETURN REAL, EXISTING WEBSITES from the search results above.
     CRITICAL: ABSOLUTELY NO E-COMMERCE, NO ONLINE STORES, NO RETAIL SHOPS. ONLY SERVICE-BASED BUSINESSES.
     CRITICAL: The URL must point to the official website of the business, NOT a directory profile (like Yelp, YellowPages, Facebook, Instagram).
     EXCLUDE: DIRECTORIES, AGGREGATORS, SOCIAL MEDIA, PARKING PAGES, ${EXCLUDED_CATEGORIES.join(", ").toUpperCase()}.
     
-    Return the result as a JSON array inside a markdown block like this:
-    \`\`\`json
-    [
-      { 
-        "siteName": "Name", 
-        "url": "https://...", 
-        "city": { "en": "City", "ru": "City", "uk": "City" }, 
-        "country": { "en": "Country", "ru": "Country", "uk": "Country" },
-        "category": { "en": "Category", "ru": "Category", "uk": "Category" }
-      }
-    ]
-    \`\`\`
+    Return the result as a JSON object with a "sites" array containing the valid businesses:
+    {
+      "sites": [
+        { 
+          "siteName": "Name", 
+          "url": "https://...", 
+          "city": { "en": "City", "ru": "City", "uk": "City" }, 
+          "country": { "en": "Country", "ru": "Country", "uk": "Country" },
+          "category": { "en": "Category", "ru": "Category", "uk": "Category" }
+        }
+      ]
+    }
   `;
 
   try {
-    const ai = new GoogleGenAI({ apiKey: getApiKey() });
-    const response = await ai.models.generateContent({
-      model: "gemini-3.1-flash-lite-preview",
-      contents: prompt,
-      config: {
-        tools: [{ googleSearch: {} }],
-        temperature: 0.4,
-      }
-    });
+    const text = await callGroq([{ role: "user", content: prompt }], "llama3-70b-8192", 0.1, true);
 
-    const text = response.text || "";
     let data: any[] = [];
-    const jsonMatch = text.match(/\[[\s\S]*\]/);
-    
-    if (jsonMatch) {
-      try {
-          data = JSON.parse(jsonMatch[0]);
-      } catch (e) {
-          throw new Error("Malformed JSON received from Gemini.");
-      }
-    } else {
-      throw new Error("No JSON found in Gemini response.");
+    try {
+        const parsed = JSON.parse(text);
+        data = parsed.sites || [];
+    } catch (e) {
+        throw new Error("Malformed JSON received from Groq.");
     }
 
     if (!Array.isArray(data) || data.length === 0) {
-        throw new Error("Gemini returned an empty list.");
+        throw new Error("Groq returned an empty list.");
     }
 
     if (onProgress) onProgress("Validating Found Sites...", 60);
@@ -466,7 +516,13 @@ async function attemptToFindSites(
       }
     }
   } catch (error: any) {
-    console.error("Gemini Search Error:", error);
+    console.error("Groq/Serper Search Error:", error);
+    
+    // Check if it's a rate limit error (429)
+    if (error.message?.includes("429")) {
+        throw new Error("Превышен лимит запросов к API. Пожалуйста, подождите и попробуйте снова.");
+    }
+    
     throw new Error(error.message || "Unknown search error");
   }
 
@@ -554,19 +610,13 @@ export const generatePromoForSite = async (site: ServiceSite): Promise<Partial<S
     };
 };
 
-// --- Google GenAI Integration ---
-
-const genAI = new GoogleGenAI({ apiKey: getApiKey() });
+// --- Groq Integration ---
 
 export const generateText = async (prompt: string): Promise<string> => {
   try {
-    const response = await genAI.models.generateContent({
-      model: 'gemini-3.1-flash-lite-preview',
-      contents: prompt,
-    });
-    return response.text || "";
+    return await callGroq([{ role: "user", content: prompt }], "llama3-70b-8192", 0.7);
   } catch (error) {
-    console.error("Gemini Text Generation Error:", error);
+    console.error("Groq Text Generation Error:", error);
     throw error;
   }
 };
@@ -574,32 +624,18 @@ export const generateText = async (prompt: string): Promise<string> => {
 export const analyzeImage = async (base64Image: string, prompt?: string): Promise<string> => {
   try {
     // base64Image is expected to be a data URL, e.g., "data:image/png;base64,..."
-    const matches = base64Image.match(/^data:(.+);base64,(.+)$/);
-    if (!matches) {
-        throw new Error("Invalid image format. Expected base64 data URL.");
-    }
-    const mimeType = matches[1];
-    const data = matches[2];
-
-    const response = await genAI.models.generateContent({
-      model: 'gemini-3.1-flash-lite-preview',
-      contents: {
-        parts: [
-          {
-            inlineData: {
-              mimeType: mimeType,
-              data: data
-            }
-          },
-          {
-            text: prompt || "Describe this image."
-          }
+    const messages = [
+      {
+        role: "user",
+        content: [
+          { type: "text", text: prompt || "Describe this image." },
+          { type: "image_url", image_url: { url: base64Image } }
         ]
       }
-    });
-    return response.text || "";
+    ];
+    return await callGroq(messages, "llama-3.2-11b-vision-preview", 0.7);
   } catch (error) {
-    console.error("Gemini Image Analysis Error:", error);
+    console.error("Groq Image Analysis Error:", error);
     throw error;
   }
 };
