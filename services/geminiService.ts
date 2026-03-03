@@ -557,11 +557,32 @@ async function attemptToFindSites(
     // We will parse the stream to find URLs as soon as they appear
     const text = await callGroqStream([{ role: "user", content: prompt }], undefined, 0.1, async (partialText) => {
         // Look for URLs in the partial JSON
+        // Improved regex to handle potential whitespace or simple escaping
         const urlMatches = [...partialText.matchAll(/"url"\s*:\s*"([^"]+)"/g)];
         
         for (const match of urlMatches) {
-            let url = match[1];
-            if (!url.startsWith('http')) url = 'https://' + url;
+            let rawUrl = match[1].trim();
+            // Basic cleanup of backslashes if LLM escaped them
+            rawUrl = rawUrl.replace(/\\/g, '');
+            
+            let url = rawUrl;
+            if (!url.startsWith('http')) {
+                // If it looks like "domain.com", add https://
+                // If it looks like "https:domain.com" (missing slashes), fix it
+                if (url.match(/^(https?):/)) {
+                     url = url.replace(/^(https?):/, '$1://');
+                } else {
+                     url = 'https://' + url;
+                }
+            }
+            
+            // Validate URL structure
+            try {
+                new URL(url);
+            } catch (e) {
+                continue; // Skip invalid URLs
+            }
+
             const domain = normalizeDomain(url);
             
             if (!processedUrls.has(domain) && accumulatedSites.length < 5) {
@@ -626,6 +647,11 @@ async function attemptToFindSites(
     // Wait for any pending active checks to finish
     while (activeChecks > 0 && accumulatedSites.length < 5) {
         await new Promise(r => setTimeout(r, 200));
+    }
+    
+    // If we found sites, we are good.
+    if (accumulatedSites.length > 0) {
+        return accumulatedSites;
     }
 
   } catch (error: any) {
