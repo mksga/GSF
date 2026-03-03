@@ -1,0 +1,5 @@
+{
+  "name": "Global Service Finder & Promo Gen",
+  "description": "A tool to discover international service websites (excluding retail/medical/legal) via Google Maps & Search, ensuring privacy policy compliance and generating Marketing Copy.",
+  "requestFramePermissions": []
+}

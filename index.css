@@ -1,0 +1,19 @@
+/* 
+  This file exists to prevent 404 errors in environments 
+  that automatically request index.css.
+  Actual styling is handled via Tailwind CDN in index.html.
+*/
+body {
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.4s ease-out forwards;
+}
