@@ -28,6 +28,8 @@ export interface ServiceSite {
   htmlContent?: string; // Store HTML for later promo generation
   isPromoGenerated?: boolean; // Flag to check if promo was generated
   isNew?: boolean; // Flag to mark newly found sites
+  isViewed?: boolean; // Flag to mark if the site link was clicked
+  isLastViewed?: boolean; // Flag to mark if the site was the last one viewed
 }
 
 export interface SearchState {

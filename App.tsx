@@ -164,6 +164,15 @@ function App() {
     setSites(prev => prev.map(s => s.id === id ? { ...s, isNew: false } : s));
   };
 
+  const handleSiteView = (id: string) => {
+    setSites(prev => prev.map(s => {
+      if (s.id === id) {
+        return { ...s, isViewed: true, isLastViewed: true, isNew: false };
+      }
+      return { ...s, isLastViewed: false };
+    }));
+  };
+
   const findSite = useCallback(async (countryOverride?: string) => {
     if (sites.length >= MAX_SITES) {
       setError(translations[language].errorMax);
@@ -574,6 +583,7 @@ function App() {
               onBlock={handleBlockSite}
               onGeneratePromo={handleGeneratePromo}
               onMarkAsRead={handleMarkSiteAsRead}
+              onView={handleSiteView}
               language={language}
             />
           ))}
