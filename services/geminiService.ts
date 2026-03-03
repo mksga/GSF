@@ -5,14 +5,23 @@ import { ServiceSite } from "../types";
 import { COUNTRIES, TARGET_CATEGORIES, EXCLUDED_CATEGORIES } from "../constants";
 
 // Helper to get API key from various environments (Vite, Node, AI Studio)
+// Now supports multiple comma-separated keys for rate limit rotation!
 const getApiKey = (): string => {
+  let keysStr = "";
   if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_GEMINI_API_KEY) {
-    return import.meta.env.VITE_GEMINI_API_KEY;
+    keysStr = import.meta.env.VITE_GEMINI_API_KEY;
+  } else if (typeof process !== 'undefined' && process.env) {
+    keysStr = process.env.GEMINI_API_KEY || process.env.API_KEY || "";
   }
-  if (typeof process !== 'undefined' && process.env) {
-    return process.env.GEMINI_API_KEY || process.env.API_KEY || "";
-  }
-  return "";
+  
+  if (!keysStr) return "";
+
+  // Split by comma and remove empty spaces
+  const keys = keysStr.split(',').map(k => k.trim()).filter(k => k.length > 0);
+  if (keys.length === 0) return "";
+
+  // Pick a random key to distribute the load
+  return keys[Math.floor(Math.random() * keys.length)];
 };
 
 // --- API CONFIGURATION ---
@@ -193,7 +202,7 @@ async function generateAdsFromSiteContent(
 
     const ai = new GoogleGenAI({ apiKey: getApiKey() });
     const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-3.1-flash-lite-preview",
         contents: prompt,
         config: { temperature: 0.7 }
     });
@@ -286,8 +295,6 @@ async function attemptToFindSites(
   onProgress?: (status: string, progress: number) => void,
   onSiteFound?: (site: ServiceSite) => void
 ): Promise<ServiceSite[]> {
-  let attempts = 0;
-  const maxAttempts = 5; // Reduced since Gemini search is much more reliable
   const currentExcludedDomains = new Set(existingUrls.map(u => normalizeDomain(u)));
   
   let locationPrompt = targetCountry;
@@ -303,182 +310,172 @@ async function attemptToFindSites(
 
   let instructionLanguage = forcedNativeLanguage === "Local" ? `The Official Primary Language of ${locationPrompt}` : forcedNativeLanguage;
   const isCis = instructionLanguage === "Russian" || forcedNativeLanguage === "Russian";
-  let lastErrorMsg = "Search failed.";
   const accumulatedSites: ServiceSite[] = [];
 
-  while (attempts < maxAttempts) {
-    attempts++;
+  if (onProgress) onProgress(`Searching Web via Google...`, 30);
+
+  let searchInstruction = "";
+  let defaultCategoryLabel = "";
+  let strictServiceRule = "";
+
+  if (targetService?.trim()) {
+      searchInstruction = `"${targetService.trim()}"`;
+      defaultCategoryLabel = targetService.trim();
+      strictServiceRule = `CRITICAL: YOU MUST ONLY RETURN BUSINESSES THAT PROVIDE "${targetService.trim()}" SERVICES. 
+      CRITICAL: DO NOT RETURN ANY SHOPS, E-COMMERCE SITES, OR PLACES THAT SELL PRODUCTS. ONLY SERVICE PROVIDERS.`;
+  } else {
+      const randomMix = shuffleArray(TARGET_CATEGORIES).slice(0, 6).join(", ");
+      searchInstruction = `a diverse mix of services including ${randomMix}`;
+      defaultCategoryLabel = "General Service";
+      strictServiceRule = `CRITICAL: The list must be DIVERSE. Do not focus on just one industry.
+      CRITICAL: DO NOT RETURN ANY SHOPS, E-COMMERCE SITES, OR PLACES THAT SELL PRODUCTS. ONLY SERVICE PROVIDERS.`;
+  }
+
+  const prompt = `
+    TASK: Search the web to find 10 HIGHLY RELEVANT, REAL, ACTIVE business websites for ${searchInstruction} in "${locationPrompt}".
     
-    // Status update for a new attempt
-    const baseProgress = Math.min(20 + (attempts * 10), 80);
-    if (onProgress) onProgress(`Searching Web via Google (Attempt ${attempts})...`, baseProgress);
+    ${strictServiceRule}
+    CRITICAL: ONLY RETURN REAL, EXISTING WEBSITES. You MUST use the Google Search tool to find actual businesses.
+    CRITICAL: ABSOLUTELY NO E-COMMERCE, NO ONLINE STORES, NO RETAIL SHOPS. ONLY SERVICE-BASED BUSINESSES.
+    CRITICAL: The URL must point to the official website of the business, NOT a directory profile (like Yelp, YellowPages, Facebook, Instagram).
+    EXCLUDE: DIRECTORIES, AGGREGATORS, SOCIAL MEDIA, PARKING PAGES, ${EXCLUDED_CATEGORIES.join(", ").toUpperCase()}.
+    
+    Return the result as a JSON array inside a markdown block like this:
+    \`\`\`json
+    [
+      { 
+        "siteName": "Name", 
+        "url": "https://...", 
+        "city": { "en": "City", "ru": "City", "uk": "City" }, 
+        "country": { "en": "Country", "ru": "Country", "uk": "Country" },
+        "category": { "en": "Category", "ru": "Category", "uk": "Category" }
+      }
+    ]
+    \`\`\`
+  `;
 
-    let searchInstruction = "";
-    let defaultCategoryLabel = "";
-    let strictServiceRule = "";
+  try {
+    const ai = new GoogleGenAI({ apiKey: getApiKey() });
+    const response = await ai.models.generateContent({
+      model: "gemini-3.1-flash-lite-preview",
+      contents: prompt,
+      config: {
+        tools: [{ googleSearch: {} }],
+        temperature: 0.4,
+      }
+    });
 
-    if (targetService?.trim()) {
-        searchInstruction = `"${targetService.trim()}"`;
-        defaultCategoryLabel = targetService.trim();
-        strictServiceRule = `CRITICAL: YOU MUST ONLY RETURN BUSINESSES THAT PROVIDE "${targetService.trim()}" SERVICES. 
-        CRITICAL: DO NOT RETURN ANY SHOPS, E-COMMERCE SITES, OR PLACES THAT SELL PRODUCTS. ONLY SERVICE PROVIDERS.`;
+    const text = response.text || "";
+    let data: any[] = [];
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    
+    if (jsonMatch) {
+      try {
+          data = JSON.parse(jsonMatch[0]);
+      } catch (e) {
+          throw new Error("Malformed JSON received from Gemini.");
+      }
     } else {
-        const randomMix = shuffleArray(TARGET_CATEGORIES).slice(0, 6).join(", ");
-        searchInstruction = `a diverse mix of services including ${randomMix}`;
-        defaultCategoryLabel = "General Service";
-        strictServiceRule = `CRITICAL: The list must be DIVERSE. Do not focus on just one industry.
-        CRITICAL: DO NOT RETURN ANY SHOPS, E-COMMERCE SITES, OR PLACES THAT SELL PRODUCTS. ONLY SERVICE PROVIDERS.`;
+      throw new Error("No JSON found in Gemini response.");
     }
 
-    const prompt = `
-      TASK: Search the web to find 10 HIGHLY RELEVANT, REAL, ACTIVE business websites for ${searchInstruction} in "${locationPrompt}".
-      
-      ${strictServiceRule}
-      CRITICAL: ONLY RETURN REAL, EXISTING WEBSITES. You MUST use the Google Search tool to find actual businesses.
-      CRITICAL: ABSOLUTELY NO E-COMMERCE, NO ONLINE STORES, NO RETAIL SHOPS. ONLY SERVICE-BASED BUSINESSES.
-      CRITICAL: The URL must point to the official website of the business, NOT a directory profile (like Yelp, YellowPages, Facebook, Instagram).
-      EXCLUDE: DIRECTORIES, AGGREGATORS, SOCIAL MEDIA, PARKING PAGES, ${EXCLUDED_CATEGORIES.join(", ").toUpperCase()}.
-      
-      Return the result as a JSON array inside a markdown block like this:
-      \`\`\`json
-      [
-        { 
-          "siteName": "Name", 
-          "url": "https://...", 
-          "city": { "en": "City", "ru": "City", "uk": "City" }, 
-          "country": { "en": "Country", "ru": "Country", "uk": "Country" },
-          "category": { "en": "Category", "ru": "Category", "uk": "Category" }
-        }
-      ]
-      \`\`\`
-    `;
-
-    try {
-      const ai = new GoogleGenAI({ apiKey: getApiKey() });
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: prompt,
-        config: {
-          tools: [{ googleSearch: {} }],
-          temperature: 0.4,
-        }
-      });
-
-      const text = response.text || "";
-      let data: any[] = [];
-      const jsonMatch = text.match(/\[[\s\S]*\]/);
-      
-      if (jsonMatch) {
-        try {
-            data = JSON.parse(jsonMatch[0]);
-        } catch (e) {
-            console.warn("Malformed JSON received from Gemini, retrying...");
-            continue; 
-        }
-      } else {
-        continue;
-      }
-
-      if (!Array.isArray(data) || data.length === 0) continue;
-
-      if (onProgress) onProgress("Validating Found Sites...", 60);
-
-      const seenUrlsInBatch = new Set<string>();
-      const potentialSites = data.filter((c: any) => {
-          if (!c.url || !c.siteName) return false;
-          let url = c.url;
-          if (!url.startsWith('http')) url = 'https://' + url;
-          
-          const domain = normalizeDomain(url);
-          
-          // Filter out obvious social media and directories that the LLM might have missed
-          const badDomains = ['facebook.com', 'instagram.com', 'yelp.', 'yellowpages.', 'linkedin.com', 'twitter.com', 'x.com', 'tiktok.com', 'youtube.com', 'tripadvisor.', 'foursquare.'];
-          if (badDomains.some(bad => domain.includes(bad))) return false;
-
-          if (currentExcludedDomains.has(domain) || seenUrlsInBatch.has(domain)) return false;
-          
-          seenUrlsInBatch.add(domain);
-          currentExcludedDomains.add(domain);
-          return true;
-      });
-
-      if (potentialSites.length > 0) {
-        if (onProgress) onProgress("Checking Site Availability...", 80);
-        
-        const batchSize = 15;
-        
-        for (let i = 0; i < potentialSites.length; i += batchSize) {
-            const batch = potentialSites.slice(i, i + batchSize);
-            
-            const checks = batch.map(async (candidate: any) => {
-                let url = candidate.url;
-                if (!url.startsWith('http')) url = 'https://' + url;
-                
-                const isAlive = await verifySiteFast(url);
-                if (isAlive) {
-                    const validSite: ServiceSite = {
-                        id: typeof crypto !== 'undefined' ? crypto.randomUUID() : Math.random().toString(36).slice(2),
-                        url: url,
-                        siteName: candidate.siteName,
-                        country: {
-                            en: candidate.country?.en || targetCountry,
-                            ru: candidate.country?.ru || targetCountry,
-                            uk: candidate.country?.uk || targetCountry
-                        },
-                        city: {
-                            en: candidate.city?.en || targetCity || "",
-                            ru: candidate.city?.ru || targetCity || "",
-                            uk: candidate.city?.uk || targetCity || ""
-                        },
-                        serviceCategory: {
-                            en: candidate.category?.en || defaultCategoryLabel,
-                            ru: candidate.category?.ru || defaultCategoryLabel,
-                            uk: candidate.category?.uk || defaultCategoryLabel
-                        },
-                        language: forcedNativeLanguage,
-                        isNew: true,
-                        privacyPolicyFound: true,
-                        nativePromo: { headlines: [], descriptions: [] },
-                        russianPromo: { headlines: [], descriptions: [] },
-                        timestamp: Date.now(),
-                        htmlContent: "",
-                        isPromoGenerated: false
-                     };
-                    
-                    if (onSiteFound) {
-                        onSiteFound(validSite);
-                    }
-                    return validSite;
-                }
-                return null;
-            });
-
-            const results = await Promise.all(checks);
-            const aliveSites = results.filter((r): r is ServiceSite => r !== null);
-            
-            accumulatedSites.push(...aliveSites);
-            
-            if (accumulatedSites.length >= 5) {
-                break; 
-            }
-        }
-
-        if (accumulatedSites.length >= 5) {
-            if (onProgress) onProgress("Done!", 100);
-            return accumulatedSites.slice(0, 5);
-        }
-      }
-    } catch (error: any) {
-      console.error("Gemini Search Error:", error);
-      lastErrorMsg = error.message || "Unknown search error";
+    if (!Array.isArray(data) || data.length === 0) {
+        throw new Error("Gemini returned an empty list.");
     }
+
+    if (onProgress) onProgress("Validating Found Sites...", 60);
+
+    const seenUrlsInBatch = new Set<string>();
+    const potentialSites = data.filter((c: any) => {
+        if (!c.url || !c.siteName) return false;
+        let url = c.url;
+        if (!url.startsWith('http')) url = 'https://' + url;
+        
+        const domain = normalizeDomain(url);
+        
+        // Filter out obvious social media and directories that the LLM might have missed
+        const badDomains = ['facebook.com', 'instagram.com', 'yelp.', 'yellowpages.', 'linkedin.com', 'twitter.com', 'x.com', 'tiktok.com', 'youtube.com', 'tripadvisor.', 'foursquare.'];
+        if (badDomains.some(bad => domain.includes(bad))) return false;
+
+        if (currentExcludedDomains.has(domain) || seenUrlsInBatch.has(domain)) return false;
+        
+        seenUrlsInBatch.add(domain);
+        currentExcludedDomains.add(domain);
+        return true;
+    });
+
+    if (potentialSites.length > 0) {
+      if (onProgress) onProgress("Checking Site Availability...", 80);
+      
+      const batchSize = 15;
+      
+      for (let i = 0; i < potentialSites.length; i += batchSize) {
+          const batch = potentialSites.slice(i, i + batchSize);
+          
+          const checks = batch.map(async (candidate: any) => {
+              let url = candidate.url;
+              if (!url.startsWith('http')) url = 'https://' + url;
+              
+              const isAlive = await verifySiteFast(url);
+              if (isAlive) {
+                  const validSite: ServiceSite = {
+                      id: typeof crypto !== 'undefined' ? crypto.randomUUID() : Math.random().toString(36).slice(2),
+                      url: url,
+                      siteName: candidate.siteName,
+                      country: {
+                          en: candidate.country?.en || targetCountry,
+                          ru: candidate.country?.ru || targetCountry,
+                          uk: candidate.country?.uk || targetCountry
+                      },
+                      city: {
+                          en: candidate.city?.en || targetCity || "",
+                          ru: candidate.city?.ru || targetCity || "",
+                          uk: candidate.city?.uk || targetCity || ""
+                      },
+                      serviceCategory: {
+                          en: candidate.category?.en || defaultCategoryLabel,
+                          ru: candidate.category?.ru || defaultCategoryLabel,
+                          uk: candidate.category?.uk || defaultCategoryLabel
+                      },
+                      language: forcedNativeLanguage,
+                      isNew: true,
+                      privacyPolicyFound: true,
+                      nativePromo: { headlines: [], descriptions: [] },
+                      russianPromo: { headlines: [], descriptions: [] },
+                      timestamp: Date.now(),
+                      htmlContent: "",
+                      isPromoGenerated: false
+                   };
+                  
+                  if (onSiteFound) {
+                      onSiteFound(validSite);
+                  }
+                  return validSite;
+              }
+              return null;
+          });
+
+          const results = await Promise.all(checks);
+          const aliveSites = results.filter((r): r is ServiceSite => r !== null);
+          
+          accumulatedSites.push(...aliveSites);
+          
+          if (accumulatedSites.length >= 5) {
+              break; 
+          }
+      }
+    }
+  } catch (error: any) {
+    console.error("Gemini Search Error:", error);
+    throw new Error(error.message || "Unknown search error");
   }
 
   if (accumulatedSites.length > 0) {
-      return accumulatedSites;
+      if (onProgress) onProgress("Done!", 100);
+      return accumulatedSites.slice(0, 5);
   }
 
-  throw new Error(`Search failed after ${maxAttempts} attempts. Last error: ${lastErrorMsg}`);
+  throw new Error(`No valid sites found in this request. Please try again.`);
 }
 
 export const generatePromoForSite = async (site: ServiceSite): Promise<Partial<ServiceSite>> => {
@@ -564,7 +561,7 @@ const genAI = new GoogleGenAI({ apiKey: getApiKey() });
 export const generateText = async (prompt: string): Promise<string> => {
   try {
     const response = await genAI.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3.1-flash-lite-preview',
       contents: prompt,
     });
     return response.text || "";
@@ -585,7 +582,7 @@ export const analyzeImage = async (base64Image: string, prompt?: string): Promis
     const data = matches[2];
 
     const response = await genAI.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3.1-flash-lite-preview',
       contents: {
         parts: [
           {
