@@ -13,19 +13,44 @@ const getGroqApiKey = (): string => {
   }
   
   if (!keysStr) return "";
-  const keys = keysStr.split(',').map(k => k.trim()).filter(k => k.length > 0);
+  // Split by comma or newline to handle different formatting in GitHub Secrets
+  const keys = keysStr.split(/[\n,]+/).map(k => k.trim()).filter(k => k.length > 0);
   if (keys.length === 0) return "";
-  return keys[Math.floor(Math.random() * keys.length)];
+  
+  let idx = 0;
+  if (typeof window !== 'undefined' && window.localStorage) {
+    idx = parseInt(localStorage.getItem('groq_key_idx') || '0', 10);
+    if (isNaN(idx)) idx = 0;
+    localStorage.setItem('groq_key_idx', (idx + 1).toString());
+  } else {
+    idx = Math.floor(Math.random() * keys.length);
+  }
+  return keys[idx % keys.length];
 };
 
 // Helper to get Serper API key
 const getSerperApiKey = (): string => {
+  let keysStr = "";
   if (typeof import.meta !== 'undefined' && import.meta.env) {
-    return import.meta.env.VITE_SERPER_API_KEY || "";
+    keysStr = import.meta.env.VITE_SERPER_API_KEY || "";
   } else if (typeof process !== 'undefined' && process.env) {
-    return process.env.SERPER_API_KEY || "";
+    keysStr = process.env.SERPER_API_KEY || "";
   }
-  return "";
+  
+  if (!keysStr) return "";
+  // Split by comma or newline to handle different formatting in GitHub Secrets
+  const keys = keysStr.split(/[\n,]+/).map(k => k.trim()).filter(k => k.length > 0);
+  if (keys.length === 0) return "";
+  
+  let idx = 0;
+  if (typeof window !== 'undefined' && window.localStorage) {
+    idx = parseInt(localStorage.getItem('serper_key_idx') || '0', 10);
+    if (isNaN(idx)) idx = 0;
+    localStorage.setItem('serper_key_idx', (idx + 1).toString());
+  } else {
+    idx = Math.floor(Math.random() * keys.length);
+  }
+  return keys[idx % keys.length];
 };
 
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
