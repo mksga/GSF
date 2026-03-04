@@ -183,16 +183,19 @@ async function searchGoogleAndMaps(query: string, location: string) {
   const apiKey = getSerperApiKey();
   if (!apiKey) throw new Error("Serper API key is missing. Please set VITE_SERPER_API_KEY to enable Google Search & Maps.");
 
+  const countryCode = getCountryCode(location);
+  const glParam = countryCode ? { gl: countryCode } : {};
+
   const [searchRes, placesRes] = await Promise.all([
     fetch("https://google.serper.dev/search", {
       method: "POST",
       headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
-      body: JSON.stringify({ q: `${query} in ${location}`, num: 20 })
+      body: JSON.stringify({ q: `${query} in ${location}`, num: 20, ...glParam })
     }).then(res => res.json()).catch(() => ({ organic: [] })),
     fetch("https://google.serper.dev/places", {
       method: "POST",
       headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
-      body: JSON.stringify({ q: `${query} in ${location}` })
+      body: JSON.stringify({ q: `${query} in ${location}`, ...glParam })
     }).then(res => res.json()).catch(() => ({ places: [] }))
   ]);
 
@@ -297,6 +300,183 @@ function normalizeDomain(url: string): string {
 
 function cleanQuotes(text: string): string {
   return text ? text.replace(/^"|"$/g, '').trim() : "";
+}
+
+const ALL_CCTLDS = new Set([
+  "ru", "su", "рф", "ua", "by", "бел", "kz", "қаз", "pl", "de", "fr", "it", "es", "uk", "us", "ca", "au", "nl", "se", "no", "dk", "fi", "cz", "hu", "ro", "tr", "br", "mx", "ar", "lv", "lt", "ee", "ch", "at", "be", "ie", "nz", "pt", "gr", "bg", "hr", "sk", "si", "cy", "mt", "in", "cn", "jp", "kr", "vn", "th", "id", "my", "ph", "sg", "ae", "sa", "eg", "za", "ng", "ke", "il", "ge", "am", "az", "uz", "kg", "md", "tj", "tm"
+]);
+
+function getCountryCode(country: string): string {
+  const c = country.toLowerCase().trim();
+  if (c.includes("uk") || c.includes("united kingdom") || c.includes("великобритания") || c.includes("англия") || c.includes("london")) return "gb";
+  if (c.includes("usa") || c.includes("сша") || c.includes("new york")) return "us";
+  if (c.includes("canada") || c.includes("канада")) return "ca";
+  if (c.includes("australia") || c.includes("австралия")) return "au";
+  if (c.includes("germany") || c.includes("германия") || c.includes("berlin")) return "de";
+  if (c.includes("france") || c.includes("франция") || c.includes("paris")) return "fr";
+  if (c.includes("italy") || c.includes("италия") || c.includes("rome")) return "it";
+  if (c.includes("spain") || c.includes("испания") || c.includes("madrid")) return "es";
+  if (c.includes("poland") || c.includes("польша") || c.includes("warsaw")) return "pl";
+  if (c.includes("russia") || c.includes("россия") || c.includes("moscow")) return "ru";
+  if (c.includes("ukraine") || c.includes("украина") || c.includes("kyiv") || c.includes("kiev")) return "ua";
+  if (c.includes("belarus") || c.includes("беларусь") || c.includes("minsk")) return "by";
+  if (c.includes("kazakhstan") || c.includes("казахстан")) return "kz";
+  if (c.includes("netherlands") || c.includes("нидерланды") || c.includes("amsterdam")) return "nl";
+  if (c.includes("sweden") || c.includes("швеция")) return "se";
+  if (c.includes("norway") || c.includes("норвегия")) return "no";
+  if (c.includes("denmark") || c.includes("дания")) return "dk";
+  if (c.includes("finland") || c.includes("финляндия")) return "fi";
+  if (c.includes("czech") || c.includes("чехия")) return "cz";
+  if (c.includes("hungary") || c.includes("венгрия")) return "hu";
+  if (c.includes("romania") || c.includes("румыния")) return "ro";
+  if (c.includes("turkey") || c.includes("турция")) return "tr";
+  if (c.includes("brazil") || c.includes("бразилия")) return "br";
+  if (c.includes("mexico") || c.includes("мексика")) return "mx";
+  if (c.includes("argentina") || c.includes("аргентина")) return "ar";
+  if (c.includes("latvia") || c.includes("латвия")) return "lv";
+  if (c.includes("lithuania") || c.includes("литва")) return "lt";
+  if (c.includes("estonia") || c.includes("эстония")) return "ee";
+  if (c.includes("switzerland") || c.includes("швейцария")) return "ch";
+  if (c.includes("austria") || c.includes("австрия")) return "at";
+  if (c.includes("belgium") || c.includes("бельгия")) return "be";
+  if (c.includes("ireland") || c.includes("ирландия")) return "ie";
+  if (c.includes("new zealand") || c.includes("новая зеландия")) return "nz";
+  if (c.includes("portugal") || c.includes("португалия")) return "pt";
+  if (c.includes("greece") || c.includes("греция")) return "gr";
+  if (c.includes("bulgaria") || c.includes("болгария")) return "bg";
+  if (c.includes("croatia") || c.includes("хорватия")) return "hr";
+  if (c.includes("slovakia") || c.includes("словакия")) return "sk";
+  if (c.includes("slovenia") || c.includes("словения")) return "si";
+  if (c.includes("cyprus") || c.includes("кипр")) return "cy";
+  if (c.includes("malta") || c.includes("мальта")) return "mt";
+  if (c.includes("india") || c.includes("индия")) return "in";
+  if (c.includes("china") || c.includes("китай")) return "cn";
+  if (c.includes("japan") || c.includes("япония")) return "jp";
+  if (c.includes("south korea") || c.includes("южная корея")) return "kr";
+  if (c.includes("vietnam") || c.includes("вьетнам")) return "vn";
+  if (c.includes("thailand") || c.includes("таиланд")) return "th";
+  if (c.includes("indonesia") || c.includes("индонезия")) return "id";
+  if (c.includes("malaysia") || c.includes("малайзия")) return "my";
+  if (c.includes("philippines") || c.includes("филиппины")) return "ph";
+  if (c.includes("singapore") || c.includes("сингапур")) return "sg";
+  if (c.includes("uae") || c.includes("оаэ")) return "ae";
+  if (c.includes("saudi arabia") || c.includes("саудовская аравия")) return "sa";
+  if (c.includes("egypt") || c.includes("египет")) return "eg";
+  if (c.includes("south africa") || c.includes("юар")) return "za";
+  if (c.includes("nigeria") || c.includes("нигерия")) return "ng";
+  if (c.includes("kenya") || c.includes("кения")) return "ke";
+  if (c.includes("israel") || c.includes("израиль")) return "il";
+  if (c.includes("georgia") || c.includes("грузия")) return "ge";
+  if (c.includes("armenia") || c.includes("армения")) return "am";
+  if (c.includes("azerbaijan") || c.includes("азербайджан")) return "az";
+  if (c.includes("uzbekistan") || c.includes("узбекистан")) return "uz";
+  if (c.includes("kyrgyzstan") || c.includes("кыргызстан")) return "kg";
+  if (c.includes("moldova") || c.includes("молдова")) return "md";
+  if (c.includes("tajikistan") || c.includes("таджикистан")) return "tj";
+  if (c.includes("turkmenistan") || c.includes("туркменистан")) return "tm";
+  return "";
+}
+
+function isUrlAllowedForCountry(url: string, country: string): boolean {
+  try {
+    const hostname = new URL(url).hostname;
+    const parts = hostname.split('.');
+    if (parts.length < 2) return true;
+    
+    const tld = parts[parts.length - 1].toLowerCase();
+    const sld = parts.length > 2 ? parts[parts.length - 2].toLowerCase() : "";
+    
+    // Check if it's a ccTLD
+    if (ALL_CCTLDS.has(tld) || (tld === "uk" && sld === "co") || (tld === "ua" && sld === "com")) {
+      const countryCode = getCountryCode(country);
+      
+      // If we don't know the country code, we can't strictly filter, so allow it
+      if (!countryCode) return true;
+      
+      // Map country codes to allowed TLDs
+      const allowedTlds: Record<string, string[]> = {
+        "gb": ["uk", "co.uk", "org.uk"],
+        "us": ["us"],
+        "ca": ["ca"],
+        "au": ["au", "com.au"],
+        "de": ["de"],
+        "fr": ["fr"],
+        "it": ["it"],
+        "es": ["es"],
+        "pl": ["pl", "com.pl"],
+        "ru": ["ru", "su", "рф"],
+        "ua": ["ua", "com.ua", "in.ua", "org.ua"],
+        "by": ["by", "бел"],
+        "kz": ["kz", "қаз"],
+        "nl": ["nl"],
+        "se": ["se"],
+        "no": ["no"],
+        "dk": ["dk"],
+        "fi": ["fi"],
+        "cz": ["cz"],
+        "hu": ["hu"],
+        "ro": ["ro"],
+        "tr": ["tr", "com.tr"],
+        "br": ["br", "com.br"],
+        "mx": ["mx", "com.mx"],
+        "ar": ["ar", "com.ar"],
+        "lv": ["lv"],
+        "lt": ["lt"],
+        "ee": ["ee"],
+        "ch": ["ch"],
+        "at": ["at"],
+        "be": ["be"],
+        "ie": ["ie"],
+        "nz": ["nz", "co.nz"],
+        "pt": ["pt"],
+        "gr": ["gr"],
+        "bg": ["bg"],
+        "hr": ["hr"],
+        "sk": ["sk"],
+        "si": ["si"],
+        "cy": ["cy"],
+        "mt": ["mt"],
+        "in": ["in", "co.in"],
+        "cn": ["cn", "com.cn"],
+        "jp": ["jp", "co.jp"],
+        "kr": ["kr", "co.kr"],
+        "vn": ["vn", "com.vn"],
+        "th": ["th", "co.th"],
+        "id": ["id", "co.id"],
+        "my": ["my", "com.my"],
+        "ph": ["ph", "com.ph"],
+        "sg": ["sg", "com.sg"],
+        "ae": ["ae"],
+        "sa": ["sa", "com.sa"],
+        "eg": ["eg", "com.eg"],
+        "za": ["za", "co.za"],
+        "ng": ["ng", "com.ng"],
+        "ke": ["ke", "co.ke"],
+        "il": ["il", "co.il"],
+        "ge": ["ge"],
+        "am": ["am"],
+        "az": ["az"],
+        "uz": ["uz"],
+        "kg": ["kg"],
+        "md": ["md"],
+        "tj": ["tj"],
+        "tm": ["tm"]
+      };
+      
+      const allowed = allowedTlds[countryCode] || [];
+      
+      // If the TLD is in our ALL_CCTLDS list, but NOT in the allowed list for this country, reject it.
+      if (ALL_CCTLDS.has(tld)) {
+         if (!allowed.includes(tld)) {
+             return false;
+         }
+      }
+    }
+    
+    return true; // Generic TLDs (.com, .org, .net, etc.) are always allowed
+  } catch (e) {
+    return true;
+  }
 }
 
 function truncateDescription(text: string): string {
@@ -683,9 +863,9 @@ async function attemptToFindSites(
             if (!processedUrls.has(domain) && accumulatedSites.length < 5) {
                 processedUrls.add(domain);
                 
-                // Filter out obvious bad domains
+                // Filter out obvious bad domains and wrong country domains
                 const badDomains = ['facebook.com', 'instagram.com', 'yelp.', 'yellowpages.', 'linkedin.com', 'twitter.com', 'x.com', 'tiktok.com', 'youtube.com', 'tripadvisor.', 'foursquare.'];
-                if (badDomains.some(bad => domain.includes(bad)) || currentExcludedDomains.has(domain)) {
+                if (badDomains.some(bad => domain.includes(bad)) || currentExcludedDomains.has(domain) || !isUrlAllowedForCountry(url, locationPrompt)) {
                     continue;
                 }
                 
