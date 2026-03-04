@@ -34,6 +34,7 @@ export const translations = {
     clickToCopy: "Click to copy",
     collapse: "Collapse",
     expand: "Expand",
+    headlinesAndDescriptions: "HEADLINES AND DESCRIPTIONS",
 
     // Blacklist
     blacklistTitle: "Blacklist",
@@ -90,6 +91,7 @@ export const translations = {
     clickToCopy: "Нажмите для копирования",
     collapse: "Свернуть",
     expand: "Развернуть",
+    headlinesAndDescriptions: "ЗАГОЛОВКИ И ОПИСАНИЯ",
 
     // Blacklist
     blacklistTitle: "Черный список",
@@ -146,6 +148,7 @@ export const translations = {
     clickToCopy: "Натисніть для копіювання",
     collapse: "Згорнути",
     expand: "Розгорнути",
+    headlinesAndDescriptions: "ЗАГОЛОВКИ ТА ОПИСИ",
 
     // Blacklist
     blacklistTitle: "Чорний список",
