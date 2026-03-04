@@ -468,6 +468,7 @@ export const findNewSites = async (
 async function translateServiceQuery(query: string, targetLanguage: string): Promise<string> {
   const prompt = `
     Translate the service search term "${query}" into ${targetLanguage}.
+    If it is already in ${targetLanguage}, just return it as is.
     Return ONLY the translated term. Do not add quotes or extra text.
     Example: "Cleaning" -> "Sprzątanie"
   `;
@@ -567,13 +568,12 @@ async function attemptToFindSites(
   if (targetService?.trim()) {
       let serviceQuery = targetService.trim();
       
-      // Auto-translate logic: If we know the target language and it's not English/Local, translate the query
-      if (forcedNativeLanguage !== "English" && forcedNativeLanguage !== "Local") {
-           if (onProgress) onProgress(`Translating "${serviceQuery}" to ${forcedNativeLanguage}...`, 20);
-           const translated = await translateServiceQuery(serviceQuery, forcedNativeLanguage);
-           if (translated && translated.length < 100) { // Sanity check
-               serviceQuery = translated;
-           }
+      // Auto-translate logic: Always translate the query to the target language to ensure local results
+      const targetLangForTranslation = forcedNativeLanguage === "Local" ? `the primary official language of ${locationPrompt}` : forcedNativeLanguage;
+      if (onProgress) onProgress(`Translating "${serviceQuery}" to ${targetLangForTranslation}...`, 20);
+      const translated = await translateServiceQuery(serviceQuery, targetLangForTranslation);
+      if (translated && translated.length < 100) { // Sanity check
+          serviceQuery = translated;
       }
 
       searchInstruction = `"${serviceQuery}"`;
