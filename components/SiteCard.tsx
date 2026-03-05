@@ -19,7 +19,7 @@ const SiteCard: React.FC<SiteCardProps> = ({ site, index, onDelete, onBlock, onG
   const [copiedDescIndex, setCopiedDescIndex] = useState<number | null>(null);
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isContentVisible, setIsContentVisible] = useState(true);
+  const [isContentVisible, setIsContentVisible] = useState(!site.isPromoGenerated);
   
   const t = translations[language];
   const currentContent = activeTab === 'native' 
