@@ -75,11 +75,25 @@ const SearchHistoryModal: React.FC<SearchHistoryModalProps> = ({
                     <div className="flex flex-col items-start gap-1">
                         {query.service ? (
                             <>
-                              <span className="font-bold text-indigo-600 text-lg">{query.service}</span>
-                              {locationText && <span className="font-bold text-slate-600 text-base">{locationText}</span>}
+                              {locationText && (
+                                <span className="font-semibold text-slate-500 text-xs uppercase tracking-wider flex items-center gap-1">
+                                  <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  </svg>
+                                  {locationText}
+                                </span>
+                              )}
+                              <span className="font-bold text-indigo-600 text-lg leading-tight">{query.service}</span>
                             </>
                         ) : (
-                             <span className="font-bold text-slate-800 text-lg">{locationText}</span>
+                             <span className="font-bold text-slate-800 text-lg leading-tight flex items-center gap-1.5">
+                                <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                                {locationText}
+                             </span>
                         )}
                     </div>
                     <span className="text-xs font-bold text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity">
