@@ -140,7 +140,6 @@ function App() {
     } catch (err: any) {
       console.error(err);
       alert(translations[language].errorPromo || "Failed to generate promo");
-      throw err;
     }
   };
 
