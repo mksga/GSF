@@ -482,14 +482,14 @@ function isUrlAllowedForCountry(url: string, country: string): boolean {
 function truncateDescription(text: string): string {
   if (!text) return "";
   let cleaned = cleanQuotes(text);
-  if (cleaned.length <= 85) return cleaned;
+  if (cleaned.length <= 90) return cleaned;
   
-  // We need room for the ellipsis or period, so we cut at 84
-  let truncated = cleaned.substring(0, 84);
+  // We need room for the ellipsis or period, so we cut at 89
+  let truncated = cleaned.substring(0, 89);
   const lastSpace = truncated.lastIndexOf(" ");
   
   // Try to cut at the last word boundary if it's reasonable
-  if (lastSpace > 60) {
+  if (lastSpace > 65) {
       truncated = truncated.substring(0, lastSpace);
   }
   
@@ -532,28 +532,28 @@ async function generateAdsFromSiteContent(
     }
 
     const prompt = `
-      TASK: You are a Senior SEO & Marketing Specialist.
+      TASK: You are a Senior Google Ads PPC Specialist.
       Analyze the website content for "${siteName}" (${url}).
       
       ${contextStr}
 
       OBJECTIVE:
-      Identify the CORE BUSINESS SERVICES and Unique Selling Points.
-      Generate strictly relevant Google Ads Headlines and Descriptions.
+      Create highly converting Google Ads Search Campaign copy.
+      Identify the CORE BUSINESS SERVICES, Unique Selling Points (USPs), and Calls to Action (CTAs).
 
-      STRICT RULES:
-      1. IGNORE Generic Web Terms: Do NOT use "Home", "Contact", "Login", "Privacy", "Imprint", "Internet", "Mobile", "Sitemap".
-      2. IGNORE Peripheral Content: Do NOT use terms related to the website's clients or partners (e.g., if a GIS company lists a "Driving School" as a client, do NOT use "Driving School" as a keyword).
-      3. FOCUS: Only include services the company OFFERS.
-      4. Native Language: ${instructionLanguage}
-      5. If CIS (${isCis}): Native output must be Russian.
-      6. LENGTH LIMITS (CRITICAL):
-         - Headlines MUST be 30 characters or less.
-         - Descriptions MUST be 85 characters or less.
+      STRICT GOOGLE ADS RULES:
+      1. HEADLINES: Maximum 30 characters each. No exclamation marks (!). Use Title Case for English.
+      2. DESCRIPTIONS: Maximum 90 characters each. Must include a clear CTA and USPs.
+      3. DIVERSITY: Provide a mix of keyword-focused headlines, brand headlines, and benefit/CTA headlines.
+      4. IGNORE Generic Web Terms: Do NOT use "Home", "Contact", "Login", "Privacy", "Imprint", "Sitemap".
+      5. IGNORE Peripheral Content: Do NOT use terms related to the website's clients or partners.
+      6. FOCUS: Only include services the company OFFERS.
+      7. Native Language: ${instructionLanguage}
+      8. If CIS (${isCis}): Native output must be Russian.
       
       OUTPUT REQUIREMENTS:
-      - 15 Google Ads Headlines (Max 30 chars).
-      - 4 Google Ads Descriptions (Max 85 chars).
+      - EXACTLY 15 Google Ads Headlines (Max 30 chars each).
+      - EXACTLY 4 Google Ads Descriptions (Max 90 chars each).
       
       Return the result as a JSON object:
       {
