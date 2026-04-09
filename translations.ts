@@ -18,6 +18,7 @@ export const translations = {
     loadingRandom: "random country",
     errorMax: "Maximum limit of 100 sites reached. Please reset to start over.",
     errorGeneric: "Failed to find a valid site. Please try again.",
+    errorPromo: "Failed to generate headlines and descriptions. Please try again.",
     
     // SiteCard
     policy: "Privacy Policy",
@@ -75,6 +76,7 @@ export const translations = {
     loadingRandom: "случайной стране",
     errorMax: "Достигнут лимит в 100 сайтов. Пожалуйста, сбросьте список.",
     errorGeneric: "Не удалось найти подходящий сайт. Попробуйте еще раз.",
+    errorPromo: "Не удалось сгенерировать заголовки и описания. Попробуйте еще раз.",
 
     // SiteCard
     policy: "Политика конфиденциальности",
@@ -132,6 +134,7 @@ export const translations = {
     loadingRandom: "випадковій країні",
     errorMax: "Досягнуто ліміт у 100 сайтів. Будь ласка, очистіть список.",
     errorGeneric: "Не вдалося знайти відповідний сайт. Спробуйте ще раз.",
+    errorPromo: "Не вдалося згенерувати заголовки та описи. Спробуйте ще раз.",
 
     // SiteCard
     policy: "Політика конфіденційності",

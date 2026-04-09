@@ -565,18 +565,26 @@ async function generateAdsFromSiteContent(
       }
     `;
 
-    const text = await callGroq([{ role: "user", content: prompt }], undefined, 0.4, false);
-    
-    try {
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-            return JSON.parse(jsonMatch[0]);
+    let lastError: any = null;
+    const maxAttempts = 8; // Try multiple models (GROQ_TEXT_MODELS.length * 2)
+    for (let attempts = 0; attempts < maxAttempts; attempts++) {
+        try {
+            const text = await callGroq([{ role: "user", content: prompt }], undefined, 0.4, false);
+            
+            const jsonMatch = text.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                return JSON.parse(jsonMatch[0]);
+            }
+            return JSON.parse(text);
+        } catch (e) {
+            console.error(`Ad Generation attempt ${attempts + 1} failed:`, e);
+            lastError = e;
+            await new Promise(resolve => setTimeout(resolve, 1000));
         }
-        return JSON.parse(text);
-    } catch (e) {
-        console.error("Failed to parse Ad Generation JSON:", e, "Raw text:", text);
-        throw new Error("Failed to parse Ad Generation JSON");
     }
+    
+    console.error(`Failed to parse Ad Generation JSON after ${maxAttempts} attempts:`, lastError);
+    throw new Error("Failed to generate promo content after trying multiple models.");
 }
 
 // Strict check to see if a domain resolves and is accessible
@@ -745,28 +753,26 @@ async function attemptToFindSites(
   let defaultCategoryLabel = "";
   let strictServiceRule = "";
 
-  if (targetService?.trim()) {
-      let serviceQuery = targetService.trim();
-      
-      // Auto-translate logic: Always translate the query to the target language to ensure local results
-      const targetLangForTranslation = forcedNativeLanguage === "Local" ? `the primary official language of ${locationPrompt}` : forcedNativeLanguage;
-      if (onProgress) onProgress(`Translating "${serviceQuery}" to ${targetLangForTranslation}...`, 20);
-      const translated = await translateServiceQuery(serviceQuery, targetLangForTranslation);
-      if (translated && translated.length < 100) { // Sanity check
-          serviceQuery = translated;
-      }
-
-      searchInstruction = `"${serviceQuery}"`;
-      defaultCategoryLabel = targetService.trim(); // Keep original for UI fallback
-      strictServiceRule = `CRITICAL: YOU MUST ONLY RETURN BUSINESSES THAT PROVIDE "${serviceQuery}" SERVICES. 
-      CRITICAL: DO NOT RETURN ANY SHOPS, E-COMMERCE SITES, OR PLACES THAT SELL PRODUCTS. ONLY SERVICE PROVIDERS.`;
-  } else {
-      const randomMix = shuffleArray(TARGET_CATEGORIES).slice(0, 6).join(", ");
-      searchInstruction = `a diverse mix of services including ${randomMix}`;
-      defaultCategoryLabel = "General Service";
-      strictServiceRule = `CRITICAL: The list must be DIVERSE. Do not focus on just one industry.
-      CRITICAL: DO NOT RETURN ANY SHOPS, E-COMMERCE SITES, OR PLACES THAT SELL PRODUCTS. ONLY SERVICE PROVIDERS.`;
+  let serviceToSearch = targetService?.trim();
+  if (!serviceToSearch) {
+      serviceToSearch = shuffleArray(TARGET_CATEGORIES)[0];
   }
+
+  let serviceQuery = serviceToSearch;
+  
+  // Auto-translate logic: Always translate the query to the target language to ensure local results
+  const targetLangForTranslation = forcedNativeLanguage === "Local" ? `the primary official language of ${locationPrompt}` : forcedNativeLanguage;
+  if (onProgress) onProgress(`Translating "${serviceQuery}" to ${targetLangForTranslation}...`, 20);
+  const translated = await translateServiceQuery(serviceQuery, targetLangForTranslation);
+  if (translated && translated.length < 100) { // Sanity check
+      serviceQuery = translated;
+  }
+
+  searchInstruction = `"${serviceQuery}"`;
+  defaultCategoryLabel = serviceToSearch; // Keep original for UI fallback
+  strictServiceRule = `CRITICAL: YOU MUST ONLY RETURN BUSINESSES THAT PROVIDE "${serviceQuery}" SERVICES. 
+  CRITICAL: DO NOT RETURN ANY SHOPS, E-COMMERCE SITES, OR PLACES THAT SELL PRODUCTS. ONLY SERVICE PROVIDERS.
+  CRITICAL: DO NOT RETURN MEDICAL SERVICES, LEGAL SERVICES, OR ELECTRONICS REPAIR.`;
 
   if (onProgress) onProgress(`Searching Google & Maps via Serper...`, 30);
 
@@ -975,11 +981,16 @@ export const generatePromoForSite = async (site: ServiceSite): Promise<Partial<S
         site.htmlContent || "", 
         instructionLanguage, 
         isCis,
-        site.serviceCategory.en
+        typeof site.serviceCategory === 'string' ? site.serviceCategory : (site.serviceCategory?.en || "Service")
     );
 
     let nativePromo = adData.promo?.native || { headlines: [], descriptions: [] };
     let russianPromo = adData.promo?.russian || { headlines: [], descriptions: [] };
+
+    nativePromo.headlines = nativePromo.headlines || [];
+    nativePromo.descriptions = nativePromo.descriptions || [];
+    russianPromo.headlines = russianPromo.headlines || [];
+    russianPromo.descriptions = russianPromo.descriptions || [];
 
     // Filtering Logic
     const validIndices: number[] = [];
@@ -1005,12 +1016,37 @@ export const generatePromoForSite = async (site: ServiceSite): Promise<Partial<S
         (desc && desc.trim().length > 0) ? desc : nativePromo.descriptions[i]
     );
 
-    // Padding
+    // Padding for Headlines
     const localizedPadding = PADDING_LOCALIZED[instructionLanguage] || PADDING_HEADLINES_EN;
     while (nativePromo.headlines.length < 15) {
         const fillIdx = nativePromo.headlines.length % localizedPadding.length;
         nativePromo.headlines.push(localizedPadding[fillIdx]);
         russianPromo.headlines.push(PADDING_HEADLINES_RU[fillIdx]);
+    }
+
+    // Padding for Descriptions
+    const PADDING_DESCRIPTIONS_EN = [
+        "Contact us today for professional and reliable services.",
+        "We offer top quality solutions tailored to your specific needs.",
+        "Our experienced team is ready to help you achieve your goals.",
+        "Discover the difference with our premium service offerings."
+    ];
+    const PADDING_DESCRIPTIONS_RU = [
+        "Свяжитесь с нами сегодня для профессиональных и надежных услуг.",
+        "Мы предлагаем высококачественные решения для ваших нужд.",
+        "Наша опытная команда готова помочь вам в достижении целей.",
+        "Почувствуйте разницу с нашими премиальными предложениями."
+    ];
+    
+    while (nativePromo.descriptions.length < 4) {
+        const fillIdx = nativePromo.descriptions.length % PADDING_DESCRIPTIONS_EN.length;
+        // If the language is Russian, use Russian padding for native as well
+        if (isCis) {
+            nativePromo.descriptions.push(PADDING_DESCRIPTIONS_RU[fillIdx]);
+        } else {
+            nativePromo.descriptions.push(PADDING_DESCRIPTIONS_EN[fillIdx]);
+        }
+        russianPromo.descriptions.push(PADDING_DESCRIPTIONS_RU[fillIdx]);
     }
 
     // Truncate

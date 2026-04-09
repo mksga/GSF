@@ -139,7 +139,7 @@ function App() {
       setSites(prev => prev.map(s => s.id === site.id ? { ...s, ...updates } : s));
     } catch (err: any) {
       console.error(err);
-      alert(translations[language].errorGeneric || "Failed to generate promo");
+      alert(translations[language].errorPromo || "Failed to generate promo");
       throw err;
     }
   };
