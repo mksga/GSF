@@ -75,7 +75,7 @@ const SiteCard: React.FC<SiteCardProps> = ({ site, index, onDelete, onBlock, onG
   };
 
   return (
-    <div className={`bg-white rounded-2xl overflow-hidden border transition-all duration-300 flex flex-col group relative ${site.isLastViewed ? 'ring-2 ring-indigo-500 shadow-lg border-indigo-200' : 'border-slate-200 shadow-sm hover:shadow-xl'}`}>
+    <div className={`bg-white rounded-2xl border transition-all duration-300 flex flex-col group relative ${site.isLastViewed ? 'ring-2 ring-indigo-500 shadow-lg border-indigo-200' : 'border-slate-200 shadow-sm hover:shadow-xl'}`}>
       
       {/* Header Section */}
       <div className="p-5 flex flex-col gap-3 relative z-10">
@@ -128,6 +128,7 @@ const SiteCard: React.FC<SiteCardProps> = ({ site, index, onDelete, onBlock, onG
                  onClick={handleCopyUrl} 
                  className={`p-1.5 rounded transition-all ${copiedUrl ? "bg-emerald-100 text-emerald-700" : "text-slate-400 opacity-100 sm:opacity-0 sm:group-hover/link:opacity-100 hover:text-slate-900 hover:bg-slate-100"}`}
                  data-tooltip={t.ttCopyLink || t.copyUrl}
+                 data-tooltip-align="right"
                >
                  {copiedUrl ? (
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
@@ -140,10 +141,10 @@ const SiteCard: React.FC<SiteCardProps> = ({ site, index, onDelete, onBlock, onG
 
            {/* Action Buttons */}
            <div className="flex items-center gap-1 shrink-0 z-20">
-             <button onClick={() => onBlock(site)} className="p-1.5 rounded bg-white text-slate-400 border border-slate-200 hover:bg-slate-50 hover:text-slate-700 hover:border-slate-300 transition-all shadow-sm" data-tooltip={t.ttBlockSite}>
+             <button onClick={() => onBlock(site)} className="p-1.5 rounded bg-white text-slate-400 border border-slate-200 hover:bg-slate-50 hover:text-slate-700 hover:border-slate-300 transition-all shadow-sm" data-tooltip={t.ttBlockSite} data-tooltip-align="right">
                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
              </button>
-             <button onClick={() => onDelete(site.id)} className="p-1.5 rounded bg-white text-red-400 border border-slate-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all shadow-sm" data-tooltip={t.ttDeleteSite}>
+             <button onClick={() => onDelete(site.id)} className="p-1.5 rounded bg-white text-red-400 border border-slate-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all shadow-sm" data-tooltip={t.ttDeleteSite} data-tooltip-align="right">
                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
              </button>
           </div>
@@ -194,6 +195,7 @@ const SiteCard: React.FC<SiteCardProps> = ({ site, index, onDelete, onBlock, onG
             onClick={() => setIsContentVisible(!isContentVisible)}
             className="pb-2 text-xs font-bold text-slate-400 hover:text-indigo-600 transition-colors flex items-center gap-1"
             data-tooltip={isContentVisible ? (t.ttCollapse || t.collapse) : (t.ttExpand || t.expand)}
+            data-tooltip-align="right"
           >
             {isContentVisible ? (
               <>
@@ -211,7 +213,7 @@ const SiteCard: React.FC<SiteCardProps> = ({ site, index, onDelete, onBlock, onG
       )}
 
       {/* Content Body */}
-      <div className="p-5 flex flex-col gap-5 bg-slate-50/50 relative z-10">
+      <div className="p-5 flex flex-col gap-5 bg-slate-50/50 relative z-10 rounded-b-2xl">
         
         {!site.isPromoGenerated ? (
           <div className="flex justify-center py-2">
@@ -242,7 +244,7 @@ const SiteCard: React.FC<SiteCardProps> = ({ site, index, onDelete, onBlock, onG
                 <div className="flex flex-col gap-2">
                   <div className="flex justify-between items-center">
                     <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{t.headlines}</h4>
-                    <button onClick={handleCopyHeadlines} className={`text-[10px] px-2 py-1 rounded font-semibold transition-all flex items-center gap-1 ${copiedHeadlines ? 'bg-emerald-100 text-emerald-700' : 'bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 shadow-sm'}`} data-tooltip={t.ttCopyAllHeadlines || t.copyAll}>
+                    <button onClick={handleCopyHeadlines} className={`text-[10px] px-2 py-1 rounded font-semibold transition-all flex items-center gap-1 ${copiedHeadlines ? 'bg-emerald-100 text-emerald-700' : 'bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 shadow-sm'}`} data-tooltip={t.ttCopyAllHeadlines || t.copyAll} data-tooltip-align="right">
                         {copiedHeadlines ? t.copied : t.copyAll}
                     </button>
                   </div>
@@ -268,7 +270,7 @@ const SiteCard: React.FC<SiteCardProps> = ({ site, index, onDelete, onBlock, onG
                         navigator.clipboard.writeText(allDesc);
                         // Optional: Add a small visual feedback here if desired
                       }
-                    }} className="text-[10px] px-2 py-1 rounded font-semibold transition-all flex items-center gap-1 bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 shadow-sm" data-tooltip={t.ttCopyAllDescriptions || t.copyAll}>
+                    }} className="text-[10px] px-2 py-1 rounded font-semibold transition-all flex items-center gap-1 bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 shadow-sm" data-tooltip={t.ttCopyAllDescriptions || t.copyAll} data-tooltip-align="right">
                         {t.copyAll}
                     </button>
                   </div>
