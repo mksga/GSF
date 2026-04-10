@@ -260,7 +260,7 @@ function App() {
 
   // Reusable Language Switcher Component
   const LanguageSwitcher = () => (
-    <div className="flex items-center bg-white/60 backdrop-blur-md rounded-lg p-1 border border-slate-200 shadow-sm">
+    <div className="flex items-center bg-white/60 backdrop-blur-md rounded-lg p-1 border border-slate-200 shadow-sm" data-tooltip={t.ttLanguage} data-tooltip-pos="bottom">
         <button 
           onClick={() => setLanguage('en')}
           className={`px-3 py-1.5 text-xs font-bold rounded ${language === 'en' ? 'bg-white text-indigo-600 shadow-sm border border-slate-100' : 'text-slate-500 hover:text-slate-800'}`}
@@ -369,7 +369,7 @@ function App() {
                         onClick={() => findSite(specificCountry)}
                         disabled={isLoading || sites.length >= MAX_SITES || !isSpecificSearchEnabled}
                         className="h-10 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold shadow-sm disabled:opacity-50 disabled:grayscale transition-all flex items-center justify-center gap-2 whitespace-nowrap flex-1 sm:flex-none"
-                        title={t.findSpecific}
+                        data-tooltip={t.findSpecific}
                     >
                         {isLoading && isSpecificSearchEnabled ? (
                             <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
@@ -383,7 +383,7 @@ function App() {
                         onClick={() => findSite()}
                         disabled={isLoading || sites.length >= MAX_SITES}
                         className="h-10 px-4 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 hover:border-slate-300 text-sm font-semibold transition-all flex items-center justify-center gap-2 whitespace-nowrap shadow-sm flex-1 sm:flex-none"
-                        title={t.findRandom}
+                        data-tooltip={t.findRandom}
                     >
                         {isLoading && !isSpecificSearchEnabled ? (
                            <div className="w-4 h-4 border-2 border-indigo-600/30 border-t-indigo-600 rounded-full animate-spin"></div>
@@ -395,9 +395,9 @@ function App() {
 
                     {/* Tools */}
                     <div className="flex items-center bg-white rounded-xl p-1 border border-slate-200 shadow-sm shrink-0">
-                        <button onClick={() => setIsSearchHistoryOpen(true)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"><svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></button>
-                        <button onClick={() => setIsBlacklistOpen(true)} className="p-2 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"><svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg></button>
-                        <button onClick={handleClearWorkspace} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+                        <button onClick={() => setIsSearchHistoryOpen(true)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" data-tooltip={t.ttSearchHistory} data-tooltip-pos="bottom"><svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></button>
+                        <button onClick={() => setIsBlacklistOpen(true)} className="p-2 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors" data-tooltip={t.ttOpenBlacklist} data-tooltip-pos="bottom"><svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg></button>
+                        <button onClick={handleClearWorkspace} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" data-tooltip={t.ttResetHistory} data-tooltip-pos="bottom"><svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
                     </div>
                 </div>
             </div>
@@ -430,16 +430,16 @@ function App() {
             
             {/* Nav Pills */}
             <div className="flex flex-wrap justify-center gap-4 mb-12">
-               <button onClick={() => setIsSearchHistoryOpen(true)} className="flex items-center gap-2 px-5 py-2 rounded-full bg-white hover:bg-slate-50 border border-slate-200 transition-all text-slate-600 hover:text-slate-900 text-sm font-medium shadow-sm hover:shadow">
+               <button onClick={() => setIsSearchHistoryOpen(true)} className="flex items-center gap-2 px-5 py-2 rounded-full bg-white hover:bg-slate-50 border border-slate-200 transition-all text-slate-600 hover:text-slate-900 text-sm font-medium shadow-sm hover:shadow" data-tooltip={t.ttSearchHistory}>
                   <svg className="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                   {t.searchHistoryTitle} <span className="ml-1 bg-slate-100 px-1.5 rounded text-xs text-slate-600 border border-slate-200">{searchQueries.length}</span>
                </button>
-               <button onClick={() => setIsBlacklistOpen(true)} className="flex items-center gap-2 px-5 py-2 rounded-full bg-white hover:bg-slate-50 border border-slate-200 transition-all text-slate-600 hover:text-slate-900 text-sm font-medium shadow-sm hover:shadow">
+               <button onClick={() => setIsBlacklistOpen(true)} className="flex items-center gap-2 px-5 py-2 rounded-full bg-white hover:bg-slate-50 border border-slate-200 transition-all text-slate-600 hover:text-slate-900 text-sm font-medium shadow-sm hover:shadow" data-tooltip={t.ttOpenBlacklist}>
                   <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
                   {t.openBlacklist} <span className="ml-1 bg-slate-100 px-1.5 rounded text-xs text-slate-600 border border-slate-200">{blacklist.length}</span>
                </button>
                {history.length > 0 && (
-                 <button onClick={handleFullReset} className="flex items-center gap-2 px-5 py-2 rounded-full bg-red-50 hover:bg-red-100 border border-red-200 transition-all text-red-600 hover:text-red-700 text-sm font-medium">
+                 <button onClick={handleFullReset} className="flex items-center gap-2 px-5 py-2 rounded-full bg-red-50 hover:bg-red-100 border border-red-200 transition-all text-red-600 hover:text-red-700 text-sm font-medium" data-tooltip={t.ttResetHistory}>
                    {t.resetHistory}
                  </button>
                )}
@@ -489,12 +489,14 @@ function App() {
                 onClick={() => findSite(specificCountry)}
                 disabled={!isSpecificSearchEnabled}
                 className="flex-1 py-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-lg font-bold shadow-lg shadow-slate-900/20 transform hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                data-tooltip={t.ttFindSpecific}
               >
                 {t.findSpecific}
               </button>
               <button 
                 onClick={() => findSite()}
                 className="flex-1 py-4 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-lg font-bold shadow-sm transform hover:-translate-y-0.5 transition-all"
+                data-tooltip={t.ttFindRandom}
               >
                 {t.findRandom}
               </button>

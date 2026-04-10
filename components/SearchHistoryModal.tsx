@@ -71,7 +71,7 @@ const SearchHistoryModal: React.FC<SearchHistoryModalProps> = ({
                     key={index} 
                     onClick={() => { onSelect(query); onClose(); }}
                     className="w-full text-left p-3 bg-white border border-slate-200 rounded-lg hover:border-indigo-300 hover:bg-indigo-50/30 hover:shadow-sm transition-all group flex items-center justify-between"
-                    title={t.ttUseSearchQuery || t.use}
+                    data-tooltip={t.ttUseSearchQuery || t.use}
                   >
                     <div className="flex flex-col items-start gap-1">
                         {query.service ? (
@@ -113,14 +113,14 @@ const SearchHistoryModal: React.FC<SearchHistoryModalProps> = ({
             onClick={onClear}
             className="px-4 py-2 text-red-500 text-sm font-medium hover:bg-red-50 rounded-lg transition-colors"
             disabled={history.length === 0}
-            title={t.ttClearSearchHistory || t.clearHistory}
+            data-tooltip={t.ttClearSearchHistory || t.clearHistory}
           >
             {t.clearHistory}
           </button>
           <button 
             onClick={onClose}
             className="px-4 py-2 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-700 transition-colors shadow-sm"
-            title={t.close}
+            data-tooltip={t.close}
           >
             {t.close}
           </button>
