@@ -58,7 +58,28 @@ export const translations = {
     clearHistory: "Clear History",
     recentSearches: "Recent Searches:",
     generatePromo: "Generate Headlines & Descriptions",
-    generatingPromo: "Generating..."
+    generatingPromo: "Generating...",
+    
+    // Tooltips
+    ttFindSpecific: "Search based on entered criteria",
+    ttFindRandom: "Find a random service",
+    ttClearAll: "Clear search fields",
+    ttSearchHistory: "View previous searches",
+    ttResetHistory: "Clear the list of found sites",
+    ttOpenBlacklist: "View blocked sites",
+    ttGeneratePromo: "Generate Google Ads copy using AI",
+    ttDeleteSite: "Remove from this list",
+    ttBlockSite: "Block this site from future searches",
+    ttVisitSite: "Open website in a new tab",
+    ttCopyLink: "Copy website URL",
+    ttLanguage: "Change application language",
+    ttCollapse: "Hide the generated promo content",
+    ttExpand: "Show the generated promo content",
+    ttCopyAllHeadlines: "Copy all generated headlines to clipboard",
+    ttCopyAllDescriptions: "Copy all generated descriptions to clipboard",
+    ttClearSearchHistory: "Clear all saved search queries",
+    ttRestoreFromBlacklist: "Remove this site from the blacklist",
+    ttUseSearchQuery: "Use this search query again"
   },
   ru: {
     appTitle: "Поиск Услуг",
@@ -116,7 +137,28 @@ export const translations = {
     clearHistory: "Очистить историю",
     recentSearches: "Недавние поиски:",
     generatePromo: "Сгенерировать заголовки и описания",
-    generatingPromo: "Генерация..."
+    generatingPromo: "Генерация...",
+    
+    // Tooltips
+    ttFindSpecific: "Искать по введенным критериям",
+    ttFindRandom: "Найти случайную услугу",
+    ttClearAll: "Очистить поля поиска",
+    ttSearchHistory: "Просмотр предыдущих поисков",
+    ttResetHistory: "Очистить список найденных сайтов",
+    ttOpenBlacklist: "Просмотр заблокированных сайтов",
+    ttGeneratePromo: "Сгенерировать текст для Google Ads с помощью ИИ",
+    ttDeleteSite: "Удалить из этого списка",
+    ttBlockSite: "Заблокировать сайт для будущих поисков",
+    ttVisitSite: "Открыть сайт в новой вкладке",
+    ttCopyLink: "Скопировать ссылку на сайт",
+    ttLanguage: "Изменить язык приложения",
+    ttCollapse: "Скрыть сгенерированные материалы",
+    ttExpand: "Показать сгенерированные материалы",
+    ttCopyAllHeadlines: "Скопировать все заголовки в буфер обмена",
+    ttCopyAllDescriptions: "Скопировать все описания в буфер обмена",
+    ttClearSearchHistory: "Очистить все сохраненные поисковые запросы",
+    ttRestoreFromBlacklist: "Удалить этот сайт из черного списка",
+    ttUseSearchQuery: "Использовать этот поисковый запрос снова"
   },
   uk: {
     appTitle: "Пошук Послуг",
@@ -174,6 +216,27 @@ export const translations = {
     clearHistory: "Очистити історію",
     recentSearches: "Недавні пошуки:",
     generatePromo: "Згенерувати заголовки та описи",
-    generatingPromo: "Генерація..."
+    generatingPromo: "Генерація...",
+    
+    // Tooltips
+    ttFindSpecific: "Шукати за введеними критеріями",
+    ttFindRandom: "Знайти випадкову послугу",
+    ttClearAll: "Очистити поля пошуку",
+    ttSearchHistory: "Перегляд попередніх пошуків",
+    ttResetHistory: "Очистити список знайдених сайтів",
+    ttOpenBlacklist: "Перегляд заблокованих сайтів",
+    ttGeneratePromo: "Згенерувати текст для Google Ads за допомогою ШІ",
+    ttDeleteSite: "Видалити з цього списку",
+    ttBlockSite: "Заблокувати сайт для майбутніх пошуків",
+    ttVisitSite: "Відкрити сайт у новій вкладці",
+    ttCopyLink: "Скопіювати посилання на сайт",
+    ttLanguage: "Змінити мову програми",
+    ttCollapse: "Приховати згенеровані матеріали",
+    ttExpand: "Показати згенеровані матеріали",
+    ttCopyAllHeadlines: "Скопіювати всі заголовки в буфер обміну",
+    ttCopyAllDescriptions: "Скопіювати всі описи в буфер обміну",
+    ttClearSearchHistory: "Очистити всі збережені пошукові запити",
+    ttRestoreFromBlacklist: "Видалити цей сайт з чорного списку",
+    ttUseSearchQuery: "Використати цей пошуковий запит знову"
   }
 };
