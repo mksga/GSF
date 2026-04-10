@@ -260,7 +260,7 @@ function App() {
 
   // Reusable Language Switcher Component
   const LanguageSwitcher = () => (
-    <div className="flex items-center bg-white/60 backdrop-blur-md rounded-lg p-1 border border-slate-200 shadow-sm" data-tooltip={t.ttLanguage} data-tooltip-pos="bottom">
+    <div className="flex items-center bg-white/60 backdrop-blur-md rounded-lg p-1 border border-slate-200 shadow-sm relative z-50" data-tooltip={t.ttLanguage} data-tooltip-pos="bottom">
         <button 
           onClick={() => setLanguage('en')}
           className={`px-3 py-1.5 text-xs font-bold rounded ${language === 'en' ? 'bg-white text-indigo-600 shadow-sm border border-slate-100' : 'text-slate-500 hover:text-slate-800'}`}
@@ -316,7 +316,7 @@ function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-wrap items-center justify-between gap-4">
           
           {/* Logo */}
-          <div className="flex items-center justify-between w-full xl:w-auto gap-4 shrink-0">
+          <div className="flex items-center justify-between w-full xl:w-auto gap-4 relative z-50">
             <div className="flex items-center gap-3 min-w-[200px]">
               <div className="bg-slate-900 text-white p-2.5 rounded-xl shadow-md shrink-0">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -335,7 +335,7 @@ function App() {
           
           {/* Active Search Controls */}
           {showHeaderControls ? (
-            <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto flex-1 justify-end animate-fadeIn">
+            <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto flex-1 justify-end animate-fadeIn relative z-40">
                 {/* Inputs Group */}
                 <div className="flex flex-col sm:flex-row items-center w-full lg:w-auto bg-white p-1 rounded-xl border border-slate-200 shadow-sm flex-1 max-w-3xl min-w-[200px]">
                     <input
@@ -370,6 +370,7 @@ function App() {
                         disabled={isLoading || sites.length >= MAX_SITES || !isSpecificSearchEnabled}
                         className="h-10 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold shadow-sm disabled:opacity-50 disabled:grayscale transition-all flex items-center justify-center gap-2 whitespace-nowrap flex-1 sm:flex-none"
                         data-tooltip={t.findSpecific}
+                        data-tooltip-pos="bottom"
                     >
                         {isLoading && isSpecificSearchEnabled ? (
                             <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
@@ -384,6 +385,7 @@ function App() {
                         disabled={isLoading || sites.length >= MAX_SITES}
                         className="h-10 px-4 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 hover:border-slate-300 text-sm font-semibold transition-all flex items-center justify-center gap-2 whitespace-nowrap shadow-sm flex-1 sm:flex-none"
                         data-tooltip={t.findRandom}
+                        data-tooltip-pos="bottom"
                     >
                         {isLoading && !isSpecificSearchEnabled ? (
                            <div className="w-4 h-4 border-2 border-indigo-600/30 border-t-indigo-600 rounded-full animate-spin"></div>
@@ -490,6 +492,7 @@ function App() {
                 disabled={!isSpecificSearchEnabled}
                 className="flex-1 py-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-lg font-bold shadow-lg shadow-slate-900/20 transform hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                 data-tooltip={t.ttFindSpecific}
+                data-tooltip-pos="bottom"
               >
                 {t.findSpecific}
               </button>
@@ -497,6 +500,7 @@ function App() {
                 onClick={() => findSite()}
                 className="flex-1 py-4 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-lg font-bold shadow-sm transform hover:-translate-y-0.5 transition-all"
                 data-tooltip={t.ttFindRandom}
+                data-tooltip-pos="bottom"
               >
                 {t.findRandom}
               </button>
