@@ -773,7 +773,8 @@ async function attemptToFindSites(
   strictServiceRule = `CRITICAL: YOU MUST ONLY RETURN LOCAL BUSINESSES THAT PROVIDE "${serviceQuery}" SERVICES. 
   CRITICAL: DO NOT RETURN ANY SHOPS, E-COMMERCE SITES, OR PLACES THAT SELL PRODUCTS. ONLY SERVICE PROVIDERS.
   CRITICAL: DO NOT RETURN MEDICAL SERVICES, LEGAL SERVICES, OR ELECTRONICS REPAIR.
-  CRITICAL: ABSOLUTELY NO MAJOR PLATFORMS like Amazon, Reddit, eBay, Wikipedia, or news sites. ONLY local service businesses.`;
+  CRITICAL: ABSOLUTELY NO MAJOR PLATFORMS like Amazon, Reddit, eBay, Wikipedia, or news sites. ONLY local service businesses.
+  CRITICAL: DO NOT RETURN BLOGS, ARTICLES, NEWS SITES, TOURISM SITES, OR INFORMATIONAL PAGES. The site must be a company offering the service.`;
 
   if (onProgress) onProgress(`Searching Google & Maps via Serper...`, 30);
 
@@ -813,8 +814,8 @@ async function attemptToFindSites(
     CRITICAL: ONLY RETURN REAL, EXISTING WEBSITES from the search results above.
     CRITICAL: ABSOLUTELY NO E-COMMERCE, NO ONLINE STORES, NO RETAIL SHOPS. ONLY SERVICE-BASED BUSINESSES.
     CRITICAL: The URL must point to the official website of the business, NOT a directory profile (like Yelp, YellowPages, Facebook, Instagram).
-    CRITICAL: VERIFY THE SNIPPET. If the snippet mentions "buy", "shop", "cart", "price comparison", or "forum", DO NOT INCLUDE IT.
-    EXCLUDE: DIRECTORIES, AGGREGATORS, SOCIAL MEDIA, PARKING PAGES, ${EXCLUDED_CATEGORIES.join(", ").toUpperCase()}.
+    CRITICAL: VERIFY THE SNIPPET. If the snippet mentions "buy", "shop", "cart", "price comparison", "forum", "blog", "article", or "news", DO NOT INCLUDE IT.
+    EXCLUDE: DIRECTORIES, AGGREGATORS, SOCIAL MEDIA, PARKING PAGES, BLOGS, NEWS, ${EXCLUDED_CATEGORIES.join(", ").toUpperCase()}.
     
     Return the result as a JSON object with a "sites" array containing EXACTLY 5 valid businesses:
     {
@@ -880,7 +881,11 @@ async function attemptToFindSites(
                     'gumtree.', 'kijiji.ca', 'olx.', 'avito.ru', 'prom.ua', 'allegro.pl',
                     'pinterest.com', 'quora.com', 'medium.com', 'vimeo.com', 'apple.com', 'microsoft.com'
                 ];
-                if (badDomains.some(bad => domain.includes(bad)) || currentExcludedDomains.has(domain) || !isUrlAllowedForCountry(url, locationPrompt)) {
+                
+                // Filter out URLs that are clearly blogs, articles, or news
+                const isBlogOrArticle = url.toLowerCase().match(/\/(blog|blogs|article|articles|news|wiki)\//);
+                
+                if (badDomains.some(bad => domain.includes(bad)) || currentExcludedDomains.has(domain) || !isUrlAllowedForCountry(url, locationPrompt) || isBlogOrArticle) {
                     continue;
                 }
                 
