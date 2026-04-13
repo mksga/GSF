@@ -770,9 +770,10 @@ async function attemptToFindSites(
 
   searchInstruction = `"${serviceQuery}"`;
   defaultCategoryLabel = serviceToSearch; // Keep original for UI fallback
-  strictServiceRule = `CRITICAL: YOU MUST ONLY RETURN BUSINESSES THAT PROVIDE "${serviceQuery}" SERVICES. 
+  strictServiceRule = `CRITICAL: YOU MUST ONLY RETURN LOCAL BUSINESSES THAT PROVIDE "${serviceQuery}" SERVICES. 
   CRITICAL: DO NOT RETURN ANY SHOPS, E-COMMERCE SITES, OR PLACES THAT SELL PRODUCTS. ONLY SERVICE PROVIDERS.
-  CRITICAL: DO NOT RETURN MEDICAL SERVICES, LEGAL SERVICES, OR ELECTRONICS REPAIR.`;
+  CRITICAL: DO NOT RETURN MEDICAL SERVICES, LEGAL SERVICES, OR ELECTRONICS REPAIR.
+  CRITICAL: ABSOLUTELY NO MAJOR PLATFORMS like Amazon, Reddit, eBay, Wikipedia, or news sites. ONLY local service businesses.`;
 
   if (onProgress) onProgress(`Searching Google & Maps via Serper...`, 30);
 
@@ -870,7 +871,7 @@ async function attemptToFindSites(
                 processedUrls.add(domain);
                 
                 // Filter out obvious bad domains and wrong country domains
-                const badDomains = ['facebook.com', 'instagram.com', 'yelp.', 'yellowpages.', 'linkedin.com', 'twitter.com', 'x.com', 'tiktok.com', 'youtube.com', 'tripadvisor.', 'foursquare.'];
+                const badDomains = ['facebook.com', 'instagram.com', 'yelp.', 'yellowpages.', 'linkedin.com', 'twitter.com', 'x.com', 'tiktok.com', 'youtube.com', 'tripadvisor.', 'foursquare.', 'amazon.', 'reddit.com', 'wikipedia.org', 'ebay.'];
                 if (badDomains.some(bad => domain.includes(bad)) || currentExcludedDomains.has(domain) || !isUrlAllowedForCountry(url, locationPrompt)) {
                     continue;
                 }
