@@ -790,13 +790,11 @@ async function attemptToFindSites(
       
       // Vary the search query on subsequent attempts to find more results
       if (attempts === 2) {
-          if (!currentInstruction.includes("services")) {
-             currentInstruction = currentInstruction.replace(/"/g, '') + " services";
-          } else {
-             currentInstruction = currentInstruction.replace(/"/g, '') + " company";
-          }
+          // Instead of appending English words, append the location to force local results
+          currentInstruction = `"${serviceQuery}" ${locationPrompt}`;
       } else if (attempts === 3) {
-          currentInstruction = currentInstruction.replace(/"/g, '') + " professional";
+          // Append a generic local business indicator
+          currentInstruction = `"${serviceQuery}" ${locationPrompt} contact`;
       }
       
       if (onProgress) onProgress(`Searching Google & Maps (Attempt ${attempts}/${maxAttempts})...`, 30 + (attempts * 10));
@@ -815,6 +813,7 @@ async function attemptToFindSites(
     CRITICAL: ONLY RETURN REAL, EXISTING WEBSITES from the search results above.
     CRITICAL: ABSOLUTELY NO E-COMMERCE, NO ONLINE STORES, NO RETAIL SHOPS. ONLY SERVICE-BASED BUSINESSES.
     CRITICAL: The URL must point to the official website of the business, NOT a directory profile (like Yelp, YellowPages, Facebook, Instagram).
+    CRITICAL: VERIFY THE SNIPPET. If the snippet mentions "buy", "shop", "cart", "price comparison", or "forum", DO NOT INCLUDE IT.
     EXCLUDE: DIRECTORIES, AGGREGATORS, SOCIAL MEDIA, PARKING PAGES, ${EXCLUDED_CATEGORIES.join(", ").toUpperCase()}.
     
     Return the result as a JSON object with a "sites" array containing EXACTLY 5 valid businesses:
@@ -871,7 +870,16 @@ async function attemptToFindSites(
                 processedUrls.add(domain);
                 
                 // Filter out obvious bad domains and wrong country domains
-                const badDomains = ['facebook.com', 'instagram.com', 'yelp.', 'yellowpages.', 'linkedin.com', 'twitter.com', 'x.com', 'tiktok.com', 'youtube.com', 'tripadvisor.', 'foursquare.', 'amazon.', 'reddit.com', 'wikipedia.org', 'ebay.'];
+                const badDomains = [
+                    'facebook.com', 'instagram.com', 'yelp.', 'yellowpages.', 'linkedin.com', 
+                    'twitter.com', 'x.com', 'tiktok.com', 'youtube.com', 'tripadvisor.', 
+                    'foursquare.', 'amazon.', 'reddit.com', 'wikipedia.org', 'ebay.',
+                    'trustpilot.', 'bbb.org', 'angi.com', 'thumbtack.com', 'houzz.com',
+                    'homeadvisor.com', 'booking.com', 'agoda.com', 'airbnb.', 'aliexpress.',
+                    'alibaba.com', 'walmart.com', 'target.com', 'etsy.com', 'craigslist.org',
+                    'gumtree.', 'kijiji.ca', 'olx.', 'avito.ru', 'prom.ua', 'allegro.pl',
+                    'pinterest.com', 'quora.com', 'medium.com', 'vimeo.com', 'apple.com', 'microsoft.com'
+                ];
                 if (badDomains.some(bad => domain.includes(bad)) || currentExcludedDomains.has(domain) || !isUrlAllowedForCountry(url, locationPrompt)) {
                     continue;
                 }
