@@ -550,6 +550,7 @@ async function generateAdsFromSiteContent(
       6. FOCUS: Only include services the company OFFERS.
       7. Native Language: ${instructionLanguage}
       8. If CIS (${isCis}): Native output must be Russian.
+      9. CRITICAL TRANSLATION RULE: You MUST translate the generated 'native' headlines and descriptions into the Russian language and place them in the 'russian' block. If 'native' is already Russian, simply duplicate them in the 'russian' block.
       
       OUTPUT REQUIREMENTS:
       - EXACTLY 15 Google Ads Headlines (Max 30 chars each).
@@ -1011,7 +1012,8 @@ export const generatePromoForSite = async (site: ServiceSite): Promise<Partial<S
     const len = Math.min(nativePromo.headlines?.length || 0, russianPromo.headlines?.length || 0);
     
     for (let i = 0; i < len; i++) {
-        if (nativePromo.headlines[i]?.length <= 30 && russianPromo.headlines[i]?.length <= 30) {
+        // Relaxed length validation to prevent throwing away good data if LLM slightly exceeds 30
+        if (nativePromo.headlines[i]?.length <= 45 && russianPromo.headlines[i]?.length <= 45) {
             validIndices.push(i);
         }
     }
